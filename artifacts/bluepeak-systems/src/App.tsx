@@ -26,16 +26,18 @@ import {
   ArrowUp,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
+import { Route, Switch, Router as WouterRouter, useLocation, Link } from 'wouter';
+import { CareersPage } from '@/pages/CareersPage';
+import { JobPage } from '@/pages/JobPage';
+import { ApplicationSuccess } from '@/pages/ApplicationSuccess';
 
 const queryClient = new QueryClient();
-export const APPLICATION_URL = 'https://forms.example.com/bluepeak-careers';
 
 const navItems = [
   ['About', '#about'],
   ['Solutions', '#solutions'],
   ['How it works', '#process'],
-  ['Careers', '#careers'],
+  ['Careers', '/careers'],
   ['Contact', '#contact'],
 ];
 
@@ -66,6 +68,9 @@ function App() {
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
           <Switch>
             <Route path="/" component={Home} />
+            <Route path="/careers/apply/success" component={ApplicationSuccess} />
+            <Route path="/careers/:slug" component={JobPage} />
+            <Route path="/careers" component={CareersPage} />
             <Route component={Home} />
           </Switch>
         </WouterRouter>
@@ -110,7 +115,12 @@ function Home() {
 
   const go = (href: string) => {
     setMobileOpen(false);
-    setLocation(href);
+    if (href.startsWith('/')) {
+      setLocation(href);
+    } else {
+      const el = document.querySelector(href);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const submitContact = (event: React.FormEvent<HTMLFormElement>) => {
@@ -130,15 +140,32 @@ function Home() {
             <span className="brand-mark"><span /></span><span>bluepeak<span className="brand-dot">.</span></span>
           </button>
           <div className="desktop-nav">
-            {navItems.map(([label, href]) => <a key={href} href={href} onClick={() => setMobileOpen(false)} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}>{label}</a>)}
+            {navItems.map(([label, href]) =>
+              href.startsWith('/') ? (
+                <Link key={href} href={href} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}>{label}</Link>
+              ) : (
+                <a key={href} href={href} onClick={() => setMobileOpen(false)} data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}>{label}</a>
+              )
+            )}
           </div>
           <div className="nav-actions">
-            <a className="nav-login" href="#careers" data-testid="link-professionals">For professionals <ArrowUpRight size={14} /></a>
+            <Link className="nav-login" href="/careers" data-testid="link-professionals">For professionals <ArrowUpRight size={14} /></Link>
             <a className="button button-dark button-small" href="#contact" data-testid="link-start-conversation">Start a conversation <ArrowUpRight size={15} /></a>
           </div>
           <button className="mobile-menu" onClick={() => setMobileOpen(!mobileOpen)} aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'} data-testid="button-mobile-menu">{mobileOpen ? <X /> : <Menu />}</button>
         </nav>
-        {mobileOpen && <div className="mobile-nav container">{navItems.map(([label, href]) => <a key={href} href={href} onClick={() => setMobileOpen(false)} data-testid={`link-mobile-${label.toLowerCase().replaceAll(' ', '-')}`}>{label}<ChevronRight size={17} /></a>)}<a href="#contact" className="button button-blue" onClick={() => setMobileOpen(false)}>Start a conversation <ArrowUpRight size={16} /></a></div>}
+        {mobileOpen && (
+          <div className="mobile-nav container">
+            {navItems.map(([label, href]) =>
+              href.startsWith('/') ? (
+                <Link key={href} href={href} onClick={() => setMobileOpen(false)} data-testid={`link-mobile-${label.toLowerCase().replaceAll(' ', '-')}`}>{label}<ChevronRight size={17} /></Link>
+              ) : (
+                <a key={href} href={href} onClick={() => setMobileOpen(false)} data-testid={`link-mobile-${label.toLowerCase().replaceAll(' ', '-')}`}>{label}<ChevronRight size={17} /></a>
+              )
+            )}
+            <a href="#contact" className="button button-blue" onClick={() => setMobileOpen(false)}>Start a conversation <ArrowUpRight size={16} /></a>
+          </div>
+        )}
       </header>
 
       <main id="top">
@@ -149,7 +176,7 @@ function Home() {
             <h1 className="hero-title reveal">The people<br /><em>behind</em> your<br /><span>next peak.</span></h1>
             <div className="hero-bottom reveal">
               <p>BluePeak helps ambitious businesses build exceptional remote teams—and helps skilled professionals find work worth showing up for.</p>
-              <div className="hero-buttons"><a className="button button-mint" href="#contact" data-testid="button-build-team">Build your team <ArrowUpRight size={17} /></a><a className="text-link light-link" href="#careers" data-testid="link-find-role">Find your next role <ArrowDownRight size={17} /></a></div>
+              <div className="hero-buttons"><a className="button button-mint" href="#contact" data-testid="button-build-team">Build your team <ArrowUpRight size={17} /></a><Link className="text-link light-link" href="/careers" data-testid="link-find-role">Find your next role <ArrowDownRight size={17} /></Link></div>
             </div>
             <div className="hero-proof reveal"><span>Trusted by teams building what is next</span><div className="proof-logos"><b>northstar</b><b>HALCYON</b><b>arc /</b><b>Meridian</b></div></div>
           </div>
@@ -186,15 +213,36 @@ function Home() {
         </section>
 
         <section className="business-band section-dark">
-          <div className="container business-layout"><div className="section-kicker light-eyebrow reveal">A BETTER WAY TO SCALE</div><div className="business-copy reveal"><h2>Bring the ambition.<br /><span>We’ll bring the people.</span></h2><p>From a first critical hire to a fully distributed function, we design the workforce layer around how your business actually moves.</p><a className="button button-mint" href="#contact" data-testid="button-talk-expert">Talk to a workforce expert <ArrowUpRight size={17} /></a></div><div className="business-stat reveal"><strong>4.8<span>/5</span></strong><small>average client experience score</small><div className="stat-rule" /><strong>91<span>%</span></strong><small>of placements still thriving after year one</small></div></div>
+          <div className="container business-layout"><div className="section-kicker light-eyebrow reveal">A BETTER WAY TO SCALE</div><div className="business-copy reveal"><h2>Bring the ambition.<br /><span>We'll bring the people.</span></h2><p>From a first critical hire to a fully distributed function, we design the workforce layer around how your business actually moves.</p><a className="button button-mint" href="#contact" data-testid="button-talk-expert">Talk to a workforce expert <ArrowUpRight size={17} /></a></div><div className="business-stat reveal"><strong>4.8<span>/5</span></strong><small>average client experience score</small><div className="stat-rule" /><strong>91<span>%</span></strong><small>of placements still thriving after year one</small></div></div>
         </section>
 
         <section className="section careers-section" id="careers">
-          <div className="container careers-layout"><div className="careers-copy reveal"><div className="section-kicker">06 / FOR PROFESSIONALS</div><h2>Your next chapter<br /><span>can start here.</span></h2><p>Bring your craft, curiosity, and point of view. We connect ambitious professionals with remote roles at companies that value the work—and the human doing it.</p><a className="button button-blue" href={APPLICATION_URL} target="_blank" rel="noreferrer" data-testid="link-view-open-roles">View open roles <ArrowUpRight size={17} /></a></div><div className="role-card reveal"><div className="role-card-top"><span>OPEN POSITIONS</span><span className="live-dot">● Live</span></div>{['Senior Product Designer', 'Customer Operations Lead', 'Full-stack Engineer'].map((role, index) => <a href={APPLICATION_URL} target="_blank" rel="noreferrer" className="role-item" key={role} data-testid={`link-role-${index}`}><div><strong>{role}</strong><span>{index === 0 ? 'Remote · Americas / Europe' : index === 1 ? 'Remote · Global' : 'Remote · EMEA / APAC'}</span></div><ArrowUpRight size={18} /></a>)}<a className="all-roles" href={APPLICATION_URL} target="_blank" rel="noreferrer">Explore all opportunities <ArrowRightSmall /></a></div></div>
+          <div className="container careers-layout">
+            <div className="careers-copy reveal">
+              <div className="section-kicker">06 / FOR PROFESSIONALS</div>
+              <h2>Your next chapter<br /><span>can start here.</span></h2>
+              <p>Bring your craft, curiosity, and point of view. We connect ambitious professionals with remote roles at companies that value the work—and the human doing it.</p>
+              <Link className="button button-blue" href="/careers" data-testid="link-view-open-roles">View open roles <ArrowUpRight size={17} /></Link>
+            </div>
+            <div className="role-card reveal">
+              <div className="role-card-top"><span>OPEN POSITIONS</span><span className="live-dot">● Live</span></div>
+              {[
+                ['Virtual Assistant', 'Remote · Global'],
+                ['Customer Support Specialist', 'Remote · Global'],
+                ['Bookkeeper', 'Remote · Global'],
+              ].map(([role, location], index) => (
+                <Link href={`/careers/${role.toLowerCase().replaceAll(' ', '-')}`} className="role-item" key={role} data-testid={`link-role-${index}`}>
+                  <div><strong>{role}</strong><span>{location}</span></div>
+                  <ArrowUpRight size={18} />
+                </Link>
+              ))}
+              <Link className="all-roles" href="/careers">Explore all 14 opportunities <ChevronRight size={16} /></Link>
+            </div>
+          </div>
         </section>
 
         <section className="section testimonials-section">
-          <div className="container"><div className="section-kicker reveal">07 / IN THEIR WORDS</div><div className="testimonial-grid">{testimonials.map((testimonial) => <article className="testimonial reveal" key={testimonial.name}><Quote size={33} className="quote-icon" /><p>“{testimonial.quote}”</p><div className="person"><span className="avatar">{testimonial.initials}</span><div><strong>{testimonial.name}</strong><small>{testimonial.role}</small></div></div></article>)}</div></div>
+          <div className="container"><div className="section-kicker reveal">07 / IN THEIR WORDS</div><div className="testimonial-grid">{testimonials.map((testimonial) => <article className="testimonial reveal" key={testimonial.name}><Quote size={33} className="quote-icon" /><p>"{testimonial.quote}"</p><div className="person"><span className="avatar">{testimonial.initials}</span><div><strong>{testimonial.name}</strong><small>{testimonial.role}</small></div></div></article>)}</div></div>
         </section>
 
         <section className="section faq-section">
@@ -202,18 +250,14 @@ function Home() {
         </section>
 
         <section className="contact-section section-dark" id="contact">
-          <div className="container contact-layout"><div className="contact-copy reveal"><div className="section-kicker light-eyebrow">09 / START HERE</div><h2>Let's make<br /><span>something work.</span></h2><p>Tell us where you’re headed. We’ll help you think through the people, the pace, and the next practical step.</p><div className="contact-detail"><Mail size={18} /><a href="mailto:hello@bluepeaksystems.com">hello@bluepeaksystems.com</a></div><div className="contact-detail"><MapPin size={18} /><span>Working globally, grounded in people</span></div></div><form className="contact-form reveal" onSubmit={submitContact} noValidate><div className="form-row"><label>First name<input name="firstName" placeholder="Your first name" required data-testid="input-first-name" /></label><label>Work email<input name="email" type="email" placeholder="you@company.com" required data-testid="input-email" /></label></div><label>What can we help with?<select name="interest" required defaultValue="" data-testid="select-interest"><option value="" disabled>Select an option</option><option>Build a remote team</option><option>Find my next role</option><option>Workforce advisory</option><option>Something else</option></select></label><label>Tell us a little more<textarea name="message" rows={4} placeholder="A sentence or two is a great start." required data-testid="input-message" /></label><button className="button button-mint form-submit" type="submit" disabled={formBusy} data-testid="button-submit-contact">{formBusy ? 'Sending…' : 'Send message'} <ArrowUpRight size={17} /></button>{formState === 'success' && <div className="form-feedback success" role="status" data-testid="status-form-success"><Check size={17} /> Message received. We’ll be in touch shortly.</div>}{formState === 'error' && <div className="form-feedback error" role="alert" data-testid="status-form-error">Please complete each field with a valid answer.</div>}</form></div>
+          <div className="container contact-layout"><div className="contact-copy reveal"><div className="section-kicker light-eyebrow">09 / START HERE</div><h2>Let's make<br /><span>something work.</span></h2><p>Tell us where you're headed. We'll help you think through the people, the pace, and the next practical step.</p><div className="contact-detail"><Mail size={18} /><a href="mailto:hello@bluepeaksystems.top">hello@bluepeaksystems.top</a></div><div className="contact-detail"><MapPin size={18} /><span>Working globally, grounded in people</span></div></div><form className="contact-form reveal" onSubmit={submitContact} noValidate><div className="form-row"><label>First name<input name="firstName" placeholder="Your first name" required data-testid="input-first-name" /></label><label>Work email<input name="email" type="email" placeholder="you@company.com" required data-testid="input-email" /></label></div><label>What can we help with?<select name="interest" required defaultValue="" data-testid="select-interest"><option value="" disabled>Select an option</option><option>Build a remote team</option><option>Find my next role</option><option>Workforce advisory</option><option>Something else</option></select></label><label>Tell us a little more<textarea name="message" rows={4} placeholder="A sentence or two is a great start." required data-testid="input-message" /></label><button className="button button-mint form-submit" type="submit" disabled={formBusy} data-testid="button-submit-contact">{formBusy ? 'Sending…' : 'Send message'} <ArrowUpRight size={17} /></button>{formState === 'success' && <div className="form-feedback success" role="status" data-testid="status-form-success"><Check size={17} /> Message received. We'll be in touch shortly.</div>}{formState === 'error' && <div className="form-feedback error" role="alert" data-testid="status-form-error">Please complete each field with a valid answer.</div>}</form></div>
         </section>
       </main>
 
-      <footer className="footer"><div className="container footer-top"><button className="brand footer-brand" onClick={() => go('#top')} data-testid="button-footer-brand"><span className="brand-mark"><span /></span><span>bluepeak<span className="brand-dot">.</span></span></button><p>Global talent. Human connection.<br />A higher standard of work.</p><div className="footer-links"><a href="#about">About</a><a href="#solutions">Solutions</a><a href="#careers">Careers</a><a href="#contact">Contact</a></div><a href="https://www.linkedin.com" target="_blank" rel="noreferrer" className="social-link" aria-label="BluePeak on LinkedIn" data-testid="link-linkedin"><Linkedin size={17} /></a></div><div className="container footer-bottom"><span>© {new Date().getFullYear()} BluePeak Systems. All rights reserved.</span><span>Built for the way work moves.</span></div></footer>
+      <footer className="footer"><div className="container footer-top"><button className="brand footer-brand" onClick={() => go('#top')} data-testid="button-footer-brand"><span className="brand-mark"><span /></span><span>bluepeak<span className="brand-dot">.</span></span></button><p>Global talent. Human connection.<br />A higher standard of work.</p><div className="footer-links"><a href="#about">About</a><a href="#solutions">Solutions</a><Link href="/careers">Careers</Link><a href="#contact">Contact</a></div><a href="https://www.linkedin.com" target="_blank" rel="noreferrer" className="social-link" aria-label="BluePeak on LinkedIn" data-testid="link-linkedin"><Linkedin size={17} /></a></div><div className="container footer-bottom"><span>© {new Date().getFullYear()} BluePeak Systems. All rights reserved.</span><span>Built for the way work moves.</span></div></footer>
       {showTop && <button className="back-top" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Back to top" data-testid="button-back-top"><ArrowUp size={18} /></button>}
     </div>
   );
-}
-
-function ArrowRightSmall() {
-  return <ChevronRight size={16} />;
 }
 
 export default App;

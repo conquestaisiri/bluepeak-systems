@@ -1,7 +1,10 @@
 import { applicationRepository } from "../repositories/applicationRepository";
 import { storageService } from "./storageService";
 import { emailService } from "./emailService";
+import { logger } from "../lib/logger";
 import type { ApplicationStatus, CreateApplicationInput } from "../models/application";
+
+type StoredApplication = Awaited<ReturnType<typeof applicationRepository.create>>;
 
 export const applicationService = {
   async create(input: CreateApplicationInput, resumeFile?: Express.Multer.File) {
@@ -26,10 +29,10 @@ export const applicationService = {
     return application;
   },
 
-  async sendEmailsAsync(application: Awaited<ReturnType<typeof applicationRepository.create>>) {
-    try {
-      // Send notification to HR
-      await emailService.sendApplicationNotification({
+  async sendEmailsAsync(application: StoredApplication) {
+    // Send each email independently so a failure of one never prevents the others.
+    const notification = await this.trySend("HR notification", () =>
+      emailService.sendApplicationNotification({
         applicationId: application.id,
         position: application.position,
         fullName: application.fullName,
@@ -46,18 +49,32 @@ export const applicationService = {
         expectedSalary: application.expectedSalary,
         earliestStartDate: application.earliestStartDate,
         skills: application.skills,
-      });
+      })
+    );
 
-      // Send confirmation to applicant
-      await emailService.sendApplicantConfirmation({
+    await this.trySend("applicant confirmation", () =>
+      emailService.sendApplicantConfirmation({
         email: application.email,
         fullName: application.fullName,
         position: application.position,
         applicationId: application.id,
-      });
+      })
+    );
+
+    if (!notification) {
+      logger.error(
+        { applicationId: application.id },
+        "Application created but the HR notification email could not be delivered. Check Resend domain verification and HR_EMAIL."
+      );
+    }
+  },
+
+  async trySend<T>(label: string, fn: () => Promise<T>): Promise<T | null> {
+    try {
+      return await fn();
     } catch (error) {
-      console.error("Failed to send application emails:", error);
-      // Don't throw - emails are best effort
+      logger.error({ error, label }, "Email send failed");
+      return null;
     }
   },
 
@@ -76,19 +93,16 @@ export const applicationService = {
     const updated = await applicationRepository.updateStatus(id, status);
     if (!updated) return null;
 
-    // Send status update email
-    try {
-      await emailService.sendStatusUpdate({
+    await this.trySend("status update email", () =>
+      emailService.sendStatusUpdate({
         email: application.email,
         fullName: application.fullName,
         position: application.position,
         status,
         applicationId: application.id,
         notes,
-      });
-    } catch (error) {
-      console.error("Failed to send status update email:", error);
-    }
+      })
+    );
 
     return applicationRepository.findById(id);
   },
@@ -101,7 +115,7 @@ export const applicationService = {
       try {
         await storageService.delete(application.resumePath);
       } catch (error) {
-        console.error("Failed to delete resume file:", error);
+        logger.error({ error }, "Failed to delete resume file");
       }
     }
 

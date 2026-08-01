@@ -4,7 +4,6 @@ import { logger } from "../lib/logger";
 import { authRepository } from "../repositories/authRepository";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
-const FRONTEND_URL = (process.env.FRONTEND_URL ?? "").trim();
 
 if (!JWT_SECRET) {
   throw new Error("JWT_SECRET must be set");
@@ -15,6 +14,15 @@ const SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function getFrontendUrl(): string {
+  const url = (process.env.FRONTEND_URL ?? "").trim();
+  if (!url) {
+    logger.warn("FRONTEND_URL not set - magic links will be relative. Set FRONTEND_URL in production.");
+    return "";
+  }
+  return url.replace(/\/$/, "");
 }
 
 export const authService = {
@@ -122,7 +130,10 @@ export const authService = {
   },
 
   buildMagicLinkUrl(token: string): string {
-    const base = FRONTEND_URL ? FRONTEND_URL.replace(/\/$/, "") : "";
+    const base = getFrontendUrl();
+    if (!base) {
+      logger.error("FRONTEND_URL not configured - magic link will be broken!");
+    }
     return `${base}/login/confirm?token=${token}`;
   },
 };

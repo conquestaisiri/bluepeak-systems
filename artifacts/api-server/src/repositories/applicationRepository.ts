@@ -1,48 +1,30 @@
-import { randomUUID } from "node:crypto";
-import db from "../db/database";
-import type { Application, ApplicationStatus, CreateApplicationInput } from "../models/application";
+import { db } from "@workspace/db";
+import { applications } from "@workspace/db/schema";
+import { eq, desc } from "drizzle-orm";
+import type { Application, ApplicationStatus, CreateApplicationInput } from "@workspace/db/schema";
 
 export const applicationRepository = {
-  create(input: CreateApplicationInput): Application {
-    const id = randomUUID();
-    const created_at = new Date().toISOString();
-    const status: ApplicationStatus = "New";
-
-    const stmt = db.prepare(`
-      INSERT INTO applications (
-        id, created_at, position, full_name, email, phone, country, city, timezone,
-        linkedin_url, portfolio_url, years_experience, education, english_proficiency,
-        notice_period, expected_salary, earliest_start_date, skills, relevant_experience,
-        cover_letter, resume_path, resume_filename, status
-      ) VALUES (
-        @id, @created_at, @position, @full_name, @email, @phone, @country, @city, @timezone,
-        @linkedin_url, @portfolio_url, @years_experience, @education, @english_proficiency,
-        @notice_period, @expected_salary, @earliest_start_date, @skills, @relevant_experience,
-        @cover_letter, @resume_path, @resume_filename, @status
-      )
-    `);
-
-    stmt.run({ id, created_at, status, ...input });
-
-    return { id, created_at, status, ...input };
+  async create(input: CreateApplicationInput): Promise<Application> {
+    const [result] = await db.insert(applications).values(input).returning();
+    return result;
   },
 
-  findById(id: string): Application | undefined {
-    return db
-      .prepare("SELECT * FROM applications WHERE id = ?")
-      .get(id) as Application | undefined;
+  async findById(id: string): Promise<Application | undefined> {
+    const [result] = await db.select().from(applications).where(eq(applications.id, id)).limit(1);
+    return result;
   },
 
-  findAll(): Application[] {
-    return db
-      .prepare("SELECT * FROM applications ORDER BY created_at DESC")
-      .all() as Application[];
+  async findAll(): Promise<Application[]> {
+    return db.select().from(applications).orderBy(desc(applications.createdAt));
   },
 
-  updateStatus(id: string, status: ApplicationStatus): boolean {
-    const result = db
-      .prepare("UPDATE applications SET status = ? WHERE id = ?")
-      .run(status, id);
-    return result.changes > 0;
+  async updateStatus(id: string, status: ApplicationStatus): Promise<boolean> {
+    const result = await db.update(applications).set({ status }).where(eq(applications.id, id));
+    return (result.rowCount ?? 0) > 0;
+  },
+
+  async delete(id: string): Promise<boolean> {
+    const result = await db.delete(applications).where(eq(applications.id, id));
+    return (result.rowCount ?? 0) > 0;
   },
 };

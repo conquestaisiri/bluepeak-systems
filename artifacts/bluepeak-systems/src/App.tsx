@@ -30,6 +30,7 @@ import { Route, Switch, Router as WouterRouter, useLocation, Link } from 'wouter
 import { CareersPage } from '@/pages/CareersPage';
 import { JobPage } from '@/pages/JobPage';
 import { ApplicationSuccess } from '@/pages/ApplicationSuccess';
+import { AdminDashboard } from '@/pages/Admin/AdminDashboard';
 
 const queryClient = new QueryClient();
 
@@ -71,6 +72,7 @@ function App() {
             <Route path="/careers/apply/success" component={ApplicationSuccess} />
             <Route path="/careers/:slug" component={JobPage} />
             <Route path="/careers" component={CareersPage} />
+            <Route path="/admin/*" component={AdminDashboard} />
             <Route component={Home} />
           </Switch>
         </WouterRouter>

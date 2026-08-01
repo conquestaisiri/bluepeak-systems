@@ -47,3 +47,15 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# environment files (never commit secrets)
+.env
+.env.*
+!.env.example
+!*.env.example
+
+# deprecated local SQLite database (replaced by Supabase/Postgres)
+/artifacts/api-server/data/
+
+# nested zip-extraction leftover
+/Blue-peak-Systems-zip/

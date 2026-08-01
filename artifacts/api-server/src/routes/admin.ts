@@ -3,12 +3,16 @@ import { authMiddleware, requireRole } from "../middleware/auth";
 import { applicationService } from "../services/applicationService";
 import { storageService } from "../services/storageService";
 import { logger } from "../lib/logger";
+import adminJobsRouter from "./adminJobs";
 
 const router = Router();
 
 // All admin routes require authentication and admin role
 router.use(authMiddleware);
 router.use(requireRole("admin", "hr"));
+
+// Job management (inherits auth from the parent router)
+router.use("/jobs", adminJobsRouter);
 
 // GET /api/admin/applications - List all applications with pagination and filters
 router.get("/applications", async (req, res) => {

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { SiteLayout } from '@/components/site/SiteLayout';
 import { format } from 'date-fns';
+import { JobsAdmin } from '@/pages/Admin/JobsAdmin';
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
@@ -171,6 +172,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
 export function AdminDashboard() {
   const [, navigate] = useLocation();
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('admin_token'));
+  const [view, setView] = useState<'applications' | 'jobs'>('applications');
 
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
@@ -311,6 +313,23 @@ export function AdminDashboard() {
         </header>
 
         <main className="admin-main">
+          <div className="admin-tabs">
+            <button
+              className={`admin-tab${view === 'applications' ? ' active' : ''}`}
+              onClick={() => setView('applications')}
+            >
+              Applications
+            </button>
+            <button
+              className={`admin-tab${view === 'jobs' ? ' active' : ''}`}
+              onClick={() => setView('jobs')}
+            >
+              Jobs
+            </button>
+          </div>
+
+          {view === 'applications' && (
+          <>
           <div className="admin-header-bar">
             <h1 className="admin-title">Applications</h1>
             <span className="admin-count">{total} total</span>
@@ -464,6 +483,10 @@ export function AdminDashboard() {
               )}
             </>
           )}
+          </>
+          )}
+
+          {view === 'jobs' && <JobsAdmin token={token} />}
         </main>
 
         {selectedApp && (

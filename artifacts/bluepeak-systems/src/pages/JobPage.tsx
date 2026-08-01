@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import {
   MapPin,
@@ -17,7 +17,8 @@ import {
   X,
 } from 'lucide-react';
 import { SiteLayout } from '@/components/site/SiteLayout';
-import { JOBS } from '@/data/jobs';
+import { fetchJobBySlug } from '@/lib/jobsApi';
+import type { Job } from '@/data/jobs';
 
 const TIMEZONES = [
   'UTC-12:00', 'UTC-11:00', 'UTC-10:00 (Hawaii)', 'UTC-08:00 (Pacific Time)',
@@ -78,7 +79,9 @@ const INITIAL_FORM: FormData = {
 export function JobPage() {
   const [location, setLocation] = useLocation();
   const slug = location.replace('/careers/', '').replace(/\/$/, '');
-  const job = JOBS.find((j) => j.slug === slug);
+  const [job, setJob] = useState<Job | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -88,6 +91,39 @@ export function JobPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError('');
+    setJob(null);
+    fetchJobBySlug(slug)
+      .then((j) => {
+        if (!cancelled) setJob(j);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError('We could not load this position right now. Please try again shortly.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <SiteLayout title="Loading — BluePeak Systems">
+        <div className="not-found-shell">
+          <div className="container" style={{ textAlign: 'center', padding: '120px 0' }}>
+            <Loader2 size={40} className="spin" style={{ margin: '0 auto 20px' }} />
+            <p style={{ color: 'var(--slate-ink)' }}>Loading position…</p>
+          </div>
+        </div>
+      </SiteLayout>
+    );
+  }
+
   if (!job) {
     return (
       <SiteLayout title="Position Not Found — BluePeak Systems">
@@ -95,7 +131,7 @@ export function JobPage() {
           <div className="container" style={{ textAlign: 'center', padding: '120px 0' }}>
             <h1 style={{ fontSize: '3rem', marginBottom: '16px' }}>Position not found</h1>
             <p style={{ color: 'var(--slate-ink)', marginBottom: '32px' }}>
-              This role may have been filled or the link may be incorrect.
+              {loadError || 'This role may have been filled or the link may be incorrect.'}
             </p>
             <Link href="/careers" className="button button-blue">
               <ArrowLeft size={16} /> View all positions

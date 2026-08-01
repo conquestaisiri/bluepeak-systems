@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'wouter';
 import {
   Search,
@@ -10,16 +10,17 @@ import {
   Users,
   SlidersHorizontal,
   X,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { SiteLayout } from '@/components/site/SiteLayout';
 import {
-  JOBS,
-  DEPARTMENTS,
   EXPERIENCE_LEVELS,
   EMPLOYMENT_TYPES,
   WORK_ARRANGEMENTS,
   type Job,
 } from '@/data/jobs';
+import { fetchJobs } from '@/lib/jobsApi';
 
 const JOBS_PER_PAGE = 9;
 
@@ -76,6 +77,9 @@ function JobCard({ job }: { job: Job }) {
 }
 
 export function CareersPage() {
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [query, setQuery] = useState('');
   const [department, setDepartment] = useState('');
   const [employmentType, setEmploymentType] = useState('');
@@ -84,8 +88,29 @@ export function CareersPage() {
   const [visibleCount, setVisibleCount] = useState(JOBS_PER_PAGE);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError('');
+    fetchJobs()
+      .then((data) => {
+        if (!cancelled) setJobs(data);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError('We could not load the positions right now. Please try again shortly.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const departments = useMemo(() => [...new Set(jobs.map((j) => j.department))].sort(), [jobs]);
+
   const filtered = useMemo(() => {
-    return JOBS.filter((job) => {
+    return jobs.filter((job) => {
       const q = query.toLowerCase();
       if (q && !job.title.toLowerCase().includes(q) && !job.department.toLowerCase().includes(q) && !job.summary.toLowerCase().includes(q)) return false;
       if (department && job.department !== department) return false;
@@ -94,7 +119,7 @@ export function CareersPage() {
       if (workArrangement && job.workArrangement !== workArrangement) return false;
       return true;
     });
-  }, [query, department, employmentType, experienceLevel, workArrangement]);
+  }, [query, department, employmentType, experienceLevel, workArrangement, jobs]);
 
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
@@ -129,7 +154,7 @@ export function CareersPage() {
             We connect ambitious professionals with remote roles at companies that value the work — and the human doing it. Browse our current openings below.
           </p>
           <div className="careers-hero-stats reveal">
-            <span><strong>{JOBS.length}</strong> open positions</span>
+            <span><strong>{jobs.length}</strong> open positions</span>
             <span className="stat-sep">·</span>
             <span><strong>100%</strong> remote</span>
             <span className="stat-sep">·</span>
@@ -174,7 +199,7 @@ export function CareersPage() {
                 <label>Department<ChevronDown size={13} /></label>
                 <select value={department} onChange={(e) => { setDepartment(e.target.value); setVisibleCount(JOBS_PER_PAGE); }}>
                   <option value="">All departments</option>
-                  {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                  {departments.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
               <div className="filter-group">
@@ -211,6 +236,20 @@ export function CareersPage() {
       {/* Results */}
       <div className="careers-results-section">
         <div className="container">
+          {loading ? (
+            <div className="no-results">
+              <Loader2 size={40} className="spin" />
+              <h3>Loading positions…</h3>
+              <p>Fetching the latest openings.</p>
+            </div>
+          ) : loadError ? (
+            <div className="no-results">
+              <AlertCircle size={40} />
+              <h3>Something went wrong</h3>
+              <p>{loadError}</p>
+            </div>
+          ) : (
+          <>
           <div className="careers-results-header">
             <span className="results-count">
               <strong>{filtered.length}</strong> position{filtered.length !== 1 ? 's' : ''} found
@@ -246,6 +285,8 @@ export function CareersPage() {
                 </div>
               )}
             </>
+          )}
+          </>
           )}
         </div>
       </div>

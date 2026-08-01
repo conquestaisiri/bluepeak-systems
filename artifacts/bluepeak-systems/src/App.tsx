@@ -31,8 +31,15 @@ import { CareersPage } from '@/pages/CareersPage';
 import { JobPage } from '@/pages/JobPage';
 import { ApplicationSuccess } from '@/pages/ApplicationSuccess';
 import { AdminDashboard } from '@/pages/Admin/AdminDashboard';
+import { fetchJobs } from '@/lib/jobsApi';
 
 const queryClient = new QueryClient();
+
+const FALLBACK_ROLES = [
+  { slug: 'virtual-assistant', title: 'Virtual Assistant' },
+  { slug: 'customer-support-specialist', title: 'Customer Support Specialist' },
+  { slug: 'bookkeeper', title: 'Bookkeeper' },
+];
 
 const navItems = [
   ['About', '#about'],
@@ -90,6 +97,7 @@ function Home() {
   const [formState, setFormState] = useState<'idle' | 'success' | 'error'>('idle');
   const [formBusy, setFormBusy] = useState(false);
   const [formError, setFormError] = useState('');
+  const [homeJobs, setHomeJobs] = useState<{ slug: string; title: string }[]>([]);
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -115,6 +123,18 @@ function Home() {
     const reveal = new IntersectionObserver((entries) => entries.forEach((entry) => entry.isIntersecting && entry.target.classList.add('is-visible')), { threshold: 0.12 });
     document.querySelectorAll('.reveal').forEach((el) => reveal.observe(el));
     return () => reveal.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchJobs()
+      .then((jobs) => {
+        if (!cancelled) setHomeJobs(jobs.map((j) => ({ slug: j.slug, title: j.title })));
+      })
+      .catch(() => { /* fall back to the static role list */ });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const go = (href: string) => {
@@ -257,17 +277,13 @@ function Home() {
             </div>
             <div className="role-card reveal">
               <div className="role-card-top"><span>OPEN POSITIONS</span><span className="live-dot">● Live</span></div>
-              {[
-                ['Virtual Assistant', 'Remote · Global'],
-                ['Customer Support Specialist', 'Remote · Global'],
-                ['Bookkeeper', 'Remote · Global'],
-              ].map(([role, location], index) => (
-                <Link href={`/careers/${role.toLowerCase().replaceAll(' ', '-')}`} className="role-item" key={role} data-testid={`link-role-${index}`}>
-                  <div><strong>{role}</strong><span>{location}</span></div>
+              {[...(homeJobs.length ? homeJobs.slice(0, 3) : FALLBACK_ROLES)].map((role, index) => (
+                <Link href={`/careers/${role.slug}`} className="role-item" key={role.slug} data-testid={`link-role-${index}`}>
+                  <div><strong>{role.title}</strong><span>Remote · Global</span></div>
                   <ArrowUpRight size={18} />
                 </Link>
               ))}
-              <Link className="all-roles" href="/careers">Explore all 14 opportunities <ChevronRight size={16} /></Link>
+              <Link className="all-roles" href="/careers">Explore all {homeJobs.length ? `${homeJobs.length}` : ''} opportunities <ChevronRight size={16} /></Link>
             </div>
           </div>
         </section>

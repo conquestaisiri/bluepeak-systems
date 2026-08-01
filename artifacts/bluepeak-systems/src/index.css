@@ -848,6 +848,34 @@
 .admin-pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 22px; }
 .pagination-info { font-size: 13px; color: #475569; }
 
+/* Admin tabs */
+.admin-tabs { display: inline-flex; gap: 4px; background: #eef2f7; border: 1px solid var(--line); padding: 4px; border-radius: 12px; margin-bottom: 22px; }
+.admin-tab { border: none; background: none; padding: 9px 18px; font-size: 13px; font-weight: 700; color: #64748b; border-radius: 9px; cursor: pointer; transition: all .15s ease; }
+.admin-tab:hover { color: var(--navy); }
+.admin-tab.active { background: #fff; color: var(--blue); box-shadow: 0 1px 3px rgba(15,23,42,.08); }
+.admin-header-actions-inline { display: flex; align-items: center; gap: 12px; }
+.admin-active-toggle { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: #fff; padding: 8px 12px; border-radius: 9px; font-size: 12px; font-weight: 700; color: var(--navy); cursor: pointer; }
+.admin-active-toggle.is-off { color: #64748b; }
+.status-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.status-live { background: #ecfdf5; color: #047857; }
+.status-hidden { background: #f1f5f9; color: #64748b; }
+
+/* Job editor */
+.job-editor-modal { width: min(100%, 860px); }
+.job-editor-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 18px; margin-bottom: 8px; }
+.job-editor-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.job-editor-field label { font-size: 12px; font-weight: 700; color: var(--navy); }
+.job-editor-field .req { color: #c43b3b; }
+.job-editor-field .opt { color: #94a3b8; font-weight: 500; font-size: 11px; }
+.job-editor-field input, .job-editor-field select, .job-editor-field textarea { border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; font-size: 13px; color: var(--navy); background: #fff; outline: none; font-family: inherit; }
+.job-editor-field input:focus, .job-editor-field select:focus, .job-editor-field textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.job-editor-field textarea { resize: vertical; line-height: 1.55; }
+.job-editor-field-full { grid-column: 1 / -1; }
+.job-editor-toggle { justify-content: flex-end; }
+@media (max-width: 640px) {
+  .job-editor-grid { grid-template-columns: 1fr; }
+}
+
 /* Modal */
 .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,.55); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; backdrop-filter: blur(2px); }
 .modal-content { background: #fff; border-radius: 16px; width: min(100%, 720px); max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 30px 70px rgba(15,23,42,.25); }

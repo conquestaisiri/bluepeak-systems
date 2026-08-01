@@ -72,6 +72,7 @@ function App() {
             <Route path="/careers/apply/success" component={ApplicationSuccess} />
             <Route path="/careers/:slug" component={JobPage} />
             <Route path="/careers" component={CareersPage} />
+            <Route path="/admin" component={AdminDashboard} />
             <Route path="/admin/*" component={AdminDashboard} />
             <Route component={Home} />
           </Switch>

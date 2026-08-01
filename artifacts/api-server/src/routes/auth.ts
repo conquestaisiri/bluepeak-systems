@@ -34,26 +34,6 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// TEMPORARY DIAGNOSTIC — reveals server-side env state without exposing secrets.
-// Returns whether submitted email/password match the configured admin credentials.
-router.post("/diagnostics", (req, res) => {
-  const { email, password } = (req.body ?? {}) as { email?: string; password?: string };
-  const trim = (s: string | undefined) => (s ?? "").trim();
-  return res.json({
-    configured: {
-      email: ADMIN_EMAIL,
-      passwordLength: ADMIN_PASSWORD.length,
-      passwordTrimmedLength: trim(ADMIN_PASSWORD).length,
-      passwordHasSurroundingWhitespace: ADMIN_PASSWORD !== trim(ADMIN_PASSWORD),
-    },
-    submitted: {
-      emailMatches: email === ADMIN_EMAIL,
-      passwordMatches: password === ADMIN_PASSWORD,
-      passwordMatchesTrimmed: trim(password) === trim(ADMIN_PASSWORD),
-    },
-  });
-});
-
 // Verify token
 router.get("/verify", (req, res) => {
   const authHeader = req.headers.authorization;

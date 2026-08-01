@@ -91,29 +91,4 @@ router.post(
   }
 );
 
-// GET /api/applications — list all applications (admin use)
-router.get("/", async (_req, res) => {
-  try {
-    const applications = await applicationService.list();
-    return res.json({ applications, total: applications.length });
-  } catch (err) {
-    logger.error({ err }, "Failed to fetch applications");
-    return res.status(500).json({ error: "Failed to retrieve applications." });
-  }
-});
-
-// GET /api/applications/:id — get single application
-router.get("/:id", async (req, res) => {
-  try {
-    const application = await applicationService.getById(req.params.id);
-    if (!application) {
-      return res.status(404).json({ error: "Application not found." });
-    }
-    return res.json({ application });
-  } catch (err) {
-    logger.error({ err }, "Failed to fetch application");
-    return res.status(500).json({ error: "Failed to retrieve application." });
-  }
-});
-
 export default router;

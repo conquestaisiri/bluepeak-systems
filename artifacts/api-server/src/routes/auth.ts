@@ -4,9 +4,13 @@ import { logger } from "../lib/logger";
 
 const router = Router();
 
-// Admin login - in production, use proper password hashing (bcrypt)
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@bluepeak.payservice.top";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "changeme123"; // Change in production!
+// Admin login
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+  throw new Error("ADMIN_EMAIL and ADMIN_PASSWORD must be set");
+}
 
 router.post("/login", async (req, res) => {
   try {

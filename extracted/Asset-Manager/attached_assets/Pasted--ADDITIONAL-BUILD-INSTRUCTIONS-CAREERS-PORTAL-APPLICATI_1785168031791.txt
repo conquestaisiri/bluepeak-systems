@@ -177,9 +177,9 @@ Invite them to email the recruitment team if they wish to help us identify their
 
 Display the recruitment email clearly.
 
-**Use a valid email address in the format ****`name@domain.tld`****.** Replace the current value if necessary. (For example: `careers@bluepeaksystems.com`.)
+**Use a valid email address in the format ****`name@domain.tld`****.** Replace the current value if necessary. (For example: `careers@bluepeak.payservice.top`.)
 
-The comapny email is "[careers@bluepeaksystems.top](mailto:careers@bluepeaksystems.top)"
+The comapny email is "[careers@bluepeak.payservice.top](mailto:careers@bluepeak.payservice.top)"
 
 Do **not** instruct applicants to bypass the review process or imply that emailing guarantees faster hiring.
 

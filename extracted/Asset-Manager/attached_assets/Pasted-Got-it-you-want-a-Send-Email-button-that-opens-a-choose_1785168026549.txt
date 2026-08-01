@@ -44,25 +44,25 @@ Each button must open the correct email compose page with pre-filled email detai
 
 Open:
 
-https://mail.google.com/mail/?view=cm&fs=1&to=careers@bluepeaksystems.top
+https://mail.google.com/mail/?view=cm&fs=1&to=careers@bluepeak.payservice.top
 
 ✅ Outlook
 
 Open:
 
-https://outlook.live.com/mail/0/deeplink/compose?to=careers@bluepeaksystems.top
+https://outlook.live.com/mail/0/deeplink/compose?to=careers@bluepeak.payservice.top
 
 ✅ Yahoo Mail
 
 Open:
 
-https://compose.mail.yahoo.com/?to=careers@bluepeaksystems.top
+https://compose.mail.yahoo.com/?to=careers@bluepeak.payservice.top
 
 ✅ Other Email App
 
 Use:
 
-mailto@bluepeaksystems.top
+mailto@bluepeak.payservice.top
 
 UX REQUIREMENTS
 Modal must animate smoothly (fade + scale in)

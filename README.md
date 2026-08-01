@@ -82,8 +82,8 @@ DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432
 
 # Resend (get from https://resend.com)
 RESEND_API_KEY="re_..."
-EMAIL_FROM="BluePeak Systems <careers@yourdomain.com>"
-HR_EMAIL="hr@yourdomain.com"
+EMAIL_FROM="BluePeak Systems <careers@bluepeak.payservice.top>"
+HR_EMAIL="hr@bluepeak.payservice.top"
 
 # Cloudflare R2 (get from Cloudflare Dashboard → R2)
 R2_ACCOUNT_ID="..."
@@ -95,7 +95,7 @@ R2_PUBLIC_URL="https://pub-<account-id>.r2.dev"
 
 # Auth
 JWT_SECRET="generate-with: openssl rand -base64 32"
-ADMIN_EMAIL="admin@yourdomain.com"
+ADMIN_EMAIL="admin@bluepeak.payservice.top"
 ADMIN_PASSWORD="secure-password-here"
 
 # App

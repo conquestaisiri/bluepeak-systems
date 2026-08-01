@@ -244,7 +244,59 @@ function formatStatusUpdateHtml(data: {
   `.trim();
 }
 
+function formatContactHtml(data: { firstName: string; email: string; interest: string; message: string }): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Contact Message</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; max-width: 600px; margin: 0 auto; padding: 24px;">
+  <div style="background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%); padding: 32px; border-radius: 12px 12px 0 0;">
+    <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">New Contact Message</h1>
+    <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">Submitted via the BluePeak Systems website contact form</p>
+  </div>
+
+  <div style="background: #f8fafc; padding: 32px; border-radius: 0 0 12px 12px; border: 1px solid #e2e8f0; border-top: none;">
+    <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+      <tr>
+        <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0; width: 40%; font-weight: 600; color: #475569;">Name</td>
+        <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">${esc(data.firstName)}</td>
+      </tr>
+      <tr>
+        <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #475569;">Email</td>
+        <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;"><a href="mailto:${esc(data.email)}" style="color: #0ea5e9;">${esc(data.email)}</a></td>
+      </tr>
+      <tr>
+        <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #475569;">Interest</td>
+        <td style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">${esc(data.interest)}</td>
+      </tr>
+    </table>
+
+    <h3 style="color: #1e293b; margin: 24px 0 12px; font-size: 16px;">Message</h3>
+    <p style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; white-space: pre-wrap;">${esc(data.message)}</p>
+
+    <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e2e8f0;">
+      <p style="color: #64748b; font-size: 14px; margin: 0;">This message was sent from the contact form on <a href="https://bluepeak.payservice.top" style="color: #0ea5e9;">bluepeak.payservice.top</a>.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
 export const emailService = {
+  async sendContactNotification(data: { firstName: string; email: string; interest: string; message: string }): Promise<void> {
+    await sendEmail({
+      from: EMAIL_FROM,
+      to: HR_EMAIL,
+      subject: `New contact message: ${data.firstName} (${data.interest})`,
+      html: formatContactHtml(data),
+    });
+  },
+
   async sendApplicationNotification(data: ApplicationEmailData): Promise<void> {
     await sendEmail({
       from: EMAIL_FROM,

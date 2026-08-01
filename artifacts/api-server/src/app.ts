@@ -44,6 +44,14 @@ const applicationLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const contactLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20, // limit each IP to 20 contact messages per hour
+  message: { error: "Too many messages submitted, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Logging
 app.use(
   pinoHttp({
@@ -73,6 +81,7 @@ app.use(express.urlencoded({ extended: true }));
 // Apply rate limiting
 app.use("/api", apiLimiter);
 app.use("/api/applications", applicationLimiter);
+app.use("/api/contact", contactLimiter);
 
 // Request ID middleware
 app.use((req: Request, res: Response, next: NextFunction) => {

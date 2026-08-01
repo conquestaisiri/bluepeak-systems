@@ -89,6 +89,7 @@ function Home() {
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const [formState, setFormState] = useState<'idle' | 'success' | 'error'>('idle');
   const [formBusy, setFormBusy] = useState(false);
+  const [formError, setFormError] = useState('');
   const [, setLocation] = useLocation();
 
   useEffect(() => {
@@ -126,13 +127,40 @@ function Home() {
     }
   };
 
-  const submitContact = (event: React.FormEvent<HTMLFormElement>) => {
+  const submitContact = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = event.currentTarget;
-    if (!form.checkValidity()) { setFormState('error'); return; }
+    if (!form.checkValidity()) { setFormError('Please complete each field with a valid answer.'); setFormState('error'); return; }
     setFormBusy(true);
     setFormState('idle');
-    window.setTimeout(() => { setFormBusy(false); setFormState('success'); form.reset(); }, 800);
+    const data = new FormData(form);
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: String(data.get('firstName') ?? ''),
+          email: String(data.get('email') ?? ''),
+          interest: String(data.get('interest') ?? ''),
+          message: String(data.get('message') ?? ''),
+        }),
+      });
+      if (!res.ok) {
+        let message = 'Something went wrong. Please try again.';
+        try {
+          const body = await res.json();
+          if (typeof body?.error === 'string') message = body.error;
+        } catch { /* ignore */ }
+        throw new Error(message);
+      }
+      setFormBusy(false);
+      setFormState('success');
+      form.reset();
+    } catch (err) {
+      setFormBusy(false);
+      setFormError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setFormState('error');
+    }
   };
 
   return (
@@ -253,7 +281,7 @@ function Home() {
         </section>
 
         <section className="contact-section section-dark" id="contact">
-          <div className="container contact-layout"><div className="contact-copy reveal"><div className="section-kicker light-eyebrow">09 / START HERE</div><h2>Let's make<br /><span>something work.</span></h2><p>Tell us where you're headed. We'll help you think through the people, the pace, and the next practical step.</p><div className="contact-detail"><Mail size={18} /><a href="mailto:hello.bluepeak@payservice.top">hello.bluepeak@payservice.top</a></div><div className="contact-detail"><MapPin size={18} /><span>Working globally, grounded in people</span></div></div><form className="contact-form reveal" onSubmit={submitContact} noValidate><div className="form-row"><label>First name<input name="firstName" placeholder="Your first name" required data-testid="input-first-name" /></label><label>Work email<input name="email" type="email" placeholder="you@company.com" required data-testid="input-email" /></label></div><label>What can we help with?<select name="interest" required defaultValue="" data-testid="select-interest"><option value="" disabled>Select an option</option><option>Build a remote team</option><option>Find my next role</option><option>Workforce advisory</option><option>Something else</option></select></label><label>Tell us a little more<textarea name="message" rows={4} placeholder="A sentence or two is a great start." required data-testid="input-message" /></label><button className="button button-mint form-submit" type="submit" disabled={formBusy} data-testid="button-submit-contact">{formBusy ? 'Sending…' : 'Send message'} <ArrowUpRight size={17} /></button>{formState === 'success' && <div className="form-feedback success" role="status" data-testid="status-form-success"><Check size={17} /> Message received. We'll be in touch shortly.</div>}{formState === 'error' && <div className="form-feedback error" role="alert" data-testid="status-form-error">Please complete each field with a valid answer.</div>}</form></div>
+          <div className="container contact-layout"><div className="contact-copy reveal"><div className="section-kicker light-eyebrow">09 / START HERE</div><h2>Let's make<br /><span>something work.</span></h2><p>Tell us where you're headed. We'll help you think through the people, the pace, and the next practical step.</p><div className="contact-detail"><Mail size={18} /><a href="mailto:hello.bluepeak@payservice.top">hello.bluepeak@payservice.top</a></div><div className="contact-detail"><MapPin size={18} /><span>Working globally, grounded in people</span></div></div><form className="contact-form reveal" onSubmit={submitContact} noValidate><div className="form-row"><label>First name<input name="firstName" placeholder="Your first name" required data-testid="input-first-name" /></label><label>Work email<input name="email" type="email" placeholder="you@company.com" required data-testid="input-email" /></label></div><label>What can we help with?<select name="interest" required defaultValue="" data-testid="select-interest"><option value="" disabled>Select an option</option><option>Build a remote team</option><option>Find my next role</option><option>Workforce advisory</option><option>Something else</option></select></label><label>Tell us a little more<textarea name="message" rows={4} placeholder="A sentence or two is a great start." required data-testid="input-message" /></label><button className="button button-mint form-submit" type="submit" disabled={formBusy} data-testid="button-submit-contact">{formBusy ? 'Sending…' : 'Send message'} <ArrowUpRight size={17} /></button>{formState === 'success' && <div className="form-feedback success" role="status" data-testid="status-form-success"><Check size={17} /> Message received. We'll be in touch shortly.</div>}{formState === 'error' && <div className="form-feedback error" role="alert" data-testid="status-form-error">{formError}</div>}</form></div>
         </section>
       </main>
 

@@ -1,31 +1,31 @@
-Got it — you want a “Send Email” button that opens a chooser (Gmail, Outlook, Yahoo, etc.) instead of just one mail link, so users can pick their preferred email provider.
+﻿Got it â€” you want a â€œSend Emailâ€ button that opens a chooser (Gmail, Outlook, Yahoo, etc.) instead of just one mail link, so users can pick their preferred email provider.
 
 Here is the exact upgrade instruction you should add to your Replit prompt (clean, precise, and implementation-ready):
 
-✅ ADD THIS SECTION TO YOUR DOCUMENT (EMAIL BEHAVIOR UPDATE)
-EMAIL ACTION — PROVIDER CHOICE MODAL (IMPORTANT UPDATE)
+âœ… ADD THIS SECTION TO YOUR DOCUMENT (EMAIL BEHAVIOR UPDATE)
+EMAIL ACTION â€” PROVIDER CHOICE MODAL (IMPORTANT UPDATE)
 
-When the user clicks “Send Email” anywhere on the website (especially in the Careers / Application Success section), do NOT directly open a single mail client.
+When the user clicks â€œSend Emailâ€ anywhere on the website (especially in the Careers / Application Success section), do NOT directly open a single mail client.
 
 Instead, implement a professional email provider selection modal.
 
 EMAIL PROVIDER SELECTION SYSTEM
 
-When the user clicks the “Send Email” button:
+When the user clicks the â€œSend Emailâ€ button:
 
-STEP 1 — OPEN MODAL
+STEP 1 â€” OPEN MODAL
 
 Display a centered modal popup with a dark overlay.
 
 The modal must contain:
 
 Title:
-“Choose your email provider”
+â€œChoose your email providerâ€
 
 Subtitle:
-“Select how you would like to send your message”
+â€œSelect how you would like to send your messageâ€
 
-STEP 2 — PROVIDER OPTIONS (BUTTONS)
+STEP 2 â€” PROVIDER OPTIONS (BUTTONS)
 
 Show 4 large clickable buttons:
 
@@ -36,29 +36,29 @@ Other Email App
 
 Each button must be styled professionally with icons and hover effects.
 
-STEP 3 — BEHAVIOR (IMPORTANT)
+STEP 3 â€” BEHAVIOR (IMPORTANT)
 
 Each button must open the correct email compose page with pre-filled email details:
 
-✅ Gmail
+âœ… Gmail
 
 Open:
 
-https://mail.google.com/mail/?view=cm&fs=1&to=careers@bluepeak.payservice.top
+https://mail.google.com/mail/?view=cm&fs=1&to=careers.bluepeak@payservice.top
 
-✅ Outlook
-
-Open:
-
-https://outlook.live.com/mail/0/deeplink/compose?to=careers@bluepeak.payservice.top
-
-✅ Yahoo Mail
+âœ… Outlook
 
 Open:
 
-https://compose.mail.yahoo.com/?to=careers@bluepeak.payservice.top
+https://outlook.live.com/mail/0/deeplink/compose?to=careers.bluepeak@payservice.top
 
-✅ Other Email App
+âœ… Yahoo Mail
+
+Open:
+
+https://compose.mail.yahoo.com/?to=careers.bluepeak@payservice.top
+
+âœ… Other Email App
 
 Use:
 

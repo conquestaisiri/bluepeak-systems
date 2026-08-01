@@ -66,8 +66,8 @@ export function ApplicationSuccess() {
               <p>
                 If you would like to help our team identify your application more quickly, you are welcome to send a brief note to our recruitment team — including your reference number and the position you applied for.
               </p>
-              <a href="mailto:careers@bluepeak.payservice.top" className="success-email">
-                careers@bluepeak.payservice.top <ArrowUpRight size={14} />
+              <a href="mailto:careers.bluepeak@payservice.top" className="success-email">
+                careers.bluepeak@payservice.top <ArrowUpRight size={14} />
               </a>
             </div>
           </div>

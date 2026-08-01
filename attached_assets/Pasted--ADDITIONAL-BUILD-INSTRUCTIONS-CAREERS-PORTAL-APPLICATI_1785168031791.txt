@@ -1,4 +1,4 @@
-# ADDITIONAL BUILD INSTRUCTIONS — CAREERS PORTAL & APPLICATION SYSTEM
+﻿# ADDITIONAL BUILD INSTRUCTIONS â€” CAREERS PORTAL & APPLICATION SYSTEM
 
 This is an extension of the existing BluePeak Systems website. Do not create a separate project. Integrate these features seamlessly into the current website.
 
@@ -177,9 +177,9 @@ Invite them to email the recruitment team if they wish to help us identify their
 
 Display the recruitment email clearly.
 
-**Use a valid email address in the format ****`name@domain.tld`****.** Replace the current value if necessary. (For example: `careers@bluepeak.payservice.top`.)
+**Use a valid email address in the format ****`name@domain.tld`****.** Replace the current value if necessary. (For example: `careers.bluepeak@payservice.top`.)
 
-The comapny email is "[careers@bluepeak.payservice.top](mailto:careers@bluepeak.payservice.top)"
+The comapny email is "[careers.bluepeak@payservice.top](mailto:careers.bluepeak@payservice.top)"
 
 Do **not** instruct applicants to bypass the review process or imply that emailing guarantees faster hiring.
 

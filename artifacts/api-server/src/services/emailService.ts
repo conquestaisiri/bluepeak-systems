@@ -190,7 +190,7 @@ function formatConfirmationHtml(data: { position: string; fullName: string; appl
     </ol>
 
     <div style="margin-top: 32px; padding: 20px; background: #eff6ff; border-radius: 8px; border-left: 4px solid #0ea5e9;">
-      <p style="margin: 0; color: #1e40af; font-size: 14px;"><strong>Need to update your application?</strong> Reply to this email or contact us at <a href="mailto:careers@bluepeak.payservice.top" style="color: #0ea5e9;">careers@bluepeak.payservice.top</a> with your application ID.</p>
+      <p style="margin: 0; color: #1e40af; font-size: 14px;"><strong>Need to update your application?</strong> Reply to this email or contact us at <a href="mailto:careers.bluepeak@payservice.top" style="color: #0ea5e9;">careers.bluepeak@payservice.top</a> with your application ID.</p>
     </div>
 
     <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;">

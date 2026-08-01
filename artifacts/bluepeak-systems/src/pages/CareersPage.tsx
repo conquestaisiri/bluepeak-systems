@@ -258,11 +258,11 @@ export function CareersPage() {
             <h2 className="careers-cta-heading">Tell us about yourself.</h2>
             <p className="careers-cta-sub">
               We are always interested in connecting with talented professionals. Send your CV to{' '}
-              <a href="mailto:careers@bluepeak.payservice.top" className="cta-email">careers@bluepeak.payservice.top</a>{' '}
+              <a href="mailto:careers.bluepeak@payservice.top" className="cta-email">careers.bluepeak@payservice.top</a>{' '}
               and we will keep you in mind for future opportunities.
             </p>
           </div>
-          <a href="mailto:careers@bluepeak.payservice.top" className="button button-mint">
+          <a href="mailto:careers.bluepeak@payservice.top" className="button button-mint">
             Get in touch <ArrowUpRight size={17} />
           </a>
         </div>

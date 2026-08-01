@@ -82,8 +82,8 @@ DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432
 
 # Resend (get from https://resend.com)
 RESEND_API_KEY="re_..."
-EMAIL_FROM="BluePeak Systems <careers@bluepeak.payservice.top>"
-HR_EMAIL="hr@bluepeak.payservice.top"
+EMAIL_FROM="BluePeak Systems <careers.bluepeak@payservice.top>"
+HR_EMAIL="hr.bluepeak@payservice.top"
 
 # Cloudflare R2 (get from Cloudflare Dashboard → R2)
 R2_ACCOUNT_ID="..."

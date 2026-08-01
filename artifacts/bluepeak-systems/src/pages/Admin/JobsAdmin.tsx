@@ -77,7 +77,8 @@ const EMPTY_FORM: FormState = {
   softwareTools: '',
   benefits: '',
   workingHours: '',
-  hiringProcess: '',
+    hiringProcess: '',
+  isActive: 'true',
 };
 
 function JobEditor({

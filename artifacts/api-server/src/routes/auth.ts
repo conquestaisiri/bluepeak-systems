@@ -5,8 +5,8 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 // Admin login
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL ?? "").trim();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "";
 
 if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
   throw new Error("ADMIN_EMAIL and ADMIN_PASSWORD must be set");
@@ -20,7 +20,7 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
-    if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+    if ((email ?? "").trim() !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
       logger.warn({ email }, "Failed admin login attempt");
       return res.status(401).json({ error: "Invalid credentials" });
     }

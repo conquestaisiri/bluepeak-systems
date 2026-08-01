@@ -2,8 +2,8 @@ import { Resend } from "resend";
 import { logger } from "../lib/logger";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM;
-const HR_EMAIL = process.env.HR_EMAIL;
+const EMAIL_FROM = (process.env.EMAIL_FROM ?? "").trim();
+const HR_EMAIL = (process.env.HR_EMAIL ?? "").trim();
 
 if (!RESEND_API_KEY || !EMAIL_FROM || !HR_EMAIL) {
   throw new Error("RESEND_API_KEY, EMAIL_FROM, and HR_EMAIL must be set");

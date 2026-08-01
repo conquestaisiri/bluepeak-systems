@@ -34,12 +34,13 @@ export const applications = pgTable("applications", {
   resumePath: text("resume_path"),
   resumeFilename: text("resume_filename"),
   status: applicationStatusEnum("status").default("New").notNull(),
+  referenceCode: text("reference_code").notNull().unique(),
 });
 
 export const insertApplicationSchema = createInsertSchema(applications, {
   email: z.string().email(),
   earliestStartDate: z.string().date(),
-}).omit({ id: true, createdAt: true, status: true });
+}).omit({ id: true, createdAt: true, status: true, referenceCode: true });
 
 export type Application = typeof applications.$inferSelect;
 export type CreateApplicationInput = z.infer<typeof insertApplicationSchema>;

@@ -52,6 +52,14 @@ const contactLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const magicLinkLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 magic-link requests per 15 minutes
+  message: { error: "Too many sign-in attempts, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Logging
 app.use(
   pinoHttp({
@@ -82,6 +90,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api", apiLimiter);
 app.use("/api/applications", applicationLimiter);
 app.use("/api/contact", contactLimiter);
+app.use("/api/auth/magic-link", magicLinkLimiter);
 
 // Request ID middleware
 app.use((req: Request, res: Response, next: NextFunction) => {

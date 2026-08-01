@@ -58,6 +58,7 @@ export const applicationService = {
         fullName: application.fullName,
         position: application.position,
         applicationId: application.id,
+        referenceCode: application.referenceCode,
       })
     );
 
@@ -100,6 +101,7 @@ export const applicationService = {
         position: application.position,
         status,
         applicationId: application.id,
+        referenceCode: application.referenceCode,
         notes,
       })
     );

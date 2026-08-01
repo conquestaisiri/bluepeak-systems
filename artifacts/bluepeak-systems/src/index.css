@@ -916,3 +916,99 @@
   .modal-footer { flex-direction: column; align-items: flex-start; }
   .admin-header-bar { flex-direction: column; align-items: flex-start; gap: 10px; }
 }
+
+/* =========================================================
+   CANDIDATE AUTH PAGES
+   ========================================================= */
+.auth-shell { background: #F8FAFC; min-height: calc(100vh - 78px); display: flex; align-items: center; justify-content: center; padding: 78px 24px 80px; }
+.auth-card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 48px 40px; max-width: 440px; width: 100%; box-shadow: 0 20px 60px rgba(10,25,47,.07); }
+.auth-header { text-align: center; margin-bottom: 36px; }
+.auth-back { display: inline-flex; align-items: center; gap: 6px; color: #64748b; text-decoration: none; font-size: 12px; font-weight: 600; margin-bottom: 24px; }
+.auth-back:hover { color: var(--blue); }
+.auth-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--navy); font-weight: 800; font-size: 20px; letter-spacing: -.065em; margin-bottom: 20px; }
+.auth-brand .brand-mark { background: var(--blue); }
+.auth-header h1 { font-size: clamp(1.8rem, 4vw, 2.4rem); letter-spacing: -.06em; font-weight: 700; margin: 0 0 10px; color: var(--navy); }
+.auth-header p { font-size: 14px; color: #64748b; line-height: 1.6; margin: 0; }
+.auth-form { display: flex; flex-direction: column; gap: 20px; }
+.auth-error { display: flex; align-items: center; gap: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 12px 16px; border-radius: 10px; font-size: 13px; }
+.form-field { display: flex; flex-direction: column; gap: 8px; }
+.form-field label { font-size: 12px; font-weight: 700; color: #4c5c70; }
+.input-wrapper { position: relative; }
+.input-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #8fa3b5; pointer-events: none; }
+.input-wrapper input { width: 100%; border: 1px solid var(--line); background: #f8fafc; padding: 13px 15px 13px 46px; border-radius: 9px; font-size: 14px; color: var(--navy); outline: none; transition: border-color .2s, box-shadow .2s; }
+.input-wrapper input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.input-wrapper input.has-error { border-color: #c43b3b; }
+.auth-submit { min-height: 52px; font-size: 14px; font-weight: 700; }
+.auth-note { font-size: 11px; color: #8fa3b5; line-height: 1.6; text-align: center; margin: 8px 0 0; }
+.auth-note a { color: var(--blue); text-decoration: none; }
+.auth-note a:hover { text-decoration: underline; }
+.auth-footer { margin-top: 28px; text-align: center; }
+.auth-footer .text-link { font-size: 13px; color: var(--blue); }
+.auth-success { text-align: center; }
+.success-icon { width: 72px; height: 72px; background: rgba(20,184,133,.1); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #14b885; margin-bottom: 24px; }
+.auth-success h2 { font-size: 22px; font-weight: 700; margin: 0 0 12px; color: var(--navy); }
+.auth-success p { font-size: 14px; color: var(--slate-ink); line-height: 1.65; margin: 0 0 12px; }
+.auth-hint { font-size: 12px; color: #8fa3b5; margin: 0; }
+.auth-verifying { text-align: center; }
+.auth-verifying .spin { color: var(--blue); margin: 0 auto 20px; }
+.auth-verifying h2 { font-size: 20px; font-weight: 700; margin: 0 0 10px; color: var(--navy); }
+.auth-verifying p { font-size: 14px; color: #64748b; margin: 0; }
+.auth-error-state { text-align: center; }
+.error-icon { width: 72px; height: 72px; background: rgba(220,38,38,.1); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #dc2626; margin-bottom: 24px; }
+.auth-error-state h2 { font-size: 22px; font-weight: 700; margin: 0 0 12px; color: var(--navy); }
+.auth-error-state p { font-size: 14px; color: var(--slate-ink); line-height: 1.65; margin: 0 0 24px; }
+.error-actions { display: flex; flex-direction: column; gap: 12px; }
+.error-actions .button { justify-content: center; }
+.auth-error-state .button-outline { background: #fff; border-color: var(--line); color: var(--navy); }
+.auth-error-state .button-outline:hover { border-color: var(--navy); }
+
+/* =========================================================
+   CANDIDATE APPLICATIONS
+   ========================================================= */
+.candidate-shell { background: #f1f5f9; min-height: 100vh; }
+.candidate-header { background: var(--navy); color: #fff; position: sticky; top: 0; z-index: 30; }
+.candidate-header-inner { width: min(100% - 34px, 1160px); margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 15px 0; }
+.candidate-brand { display: inline-flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 700; font-size: 15px; letter-spacing: -0.2px; }
+.candidate-brand .brand-mark { background: var(--mint); }
+.candidate-header-actions { display: flex; align-items: center; gap: 14px; }
+.candidate-user { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.85); padding: 6px 12px; background: rgba(255,255,255,.1); border-radius: 999px; }
+.candidate-main { width: min(100% - 34px, 1160px); margin: 0 auto; padding: 34px 0 80px; }
+.candidate-header-bar { margin-bottom: 22px; }
+.candidate-title { font-size: 24px; font-weight: 800; color: var(--navy); margin: 0 0 6px; }
+.candidate-subtitle { font-size: 13px; color: #64748b; margin: 0; }
+.candidate-alert { display: flex; align-items: center; gap: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; padding: 13px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 18px; }
+.candidate-loading, .candidate-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 90px 20px; background: #fff; border: 1px solid var(--line); border-radius: 14px; color: #64748b; text-align: center; }
+.candidate-loading svg { color: var(--blue); margin-bottom: 14px; }
+.candidate-empty svg { color: #cbd5e1; margin-bottom: 14px; }
+.candidate-empty h3 { color: var(--navy); margin: 0 0 6px; font-size: 17px; }
+.candidate-empty p { margin: 0 0 20px; font-size: 13px; }
+.candidate-empty .button { margin-top: 8px; }
+.candidate-table-wrapper { background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; }
+.candidate-table { width: 100%; border-collapse: collapse; min-width: 720px; }
+.candidate-table thead th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; padding: 14px 18px; border-bottom: 1px solid var(--line); background: #f8fafc; white-space: nowrap; }
+.candidate-table tbody td { padding: 15px 18px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--navy); vertical-align: middle; }
+.candidate-table tbody tr:last-child td { border-bottom: none; }
+.candidate-table tbody tr:hover { background: #f8fafc; }
+.position-title { font-weight: 600; }
+.position-reference { color: #64748b; font-size: 11px; margin-top: 3px; font-family: monospace; }
+.position-department { color: #475569; font-size: 12px; }
+.date-cell { color: #475569; white-space: nowrap; }
+.action-buttons { display: flex; align-items: center; gap: 8px; }
+.action-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: #475569; cursor: pointer; transition: all .15s ease; }
+.action-btn:hover { border-color: var(--blue); color: var(--blue); background: rgba(37,99,235,.05); }
+
+/* Candidate Modal */
+.candidate-modal { width: min(100%, 720px); }
+.candidate-modal .modal-tabs { gap: 4px; }
+.candidate-modal .modal-tabs button { padding: 11px 15px; font-size: 13px; }
+.candidate-modal .info-grid { grid-template-columns: repeat(2, 1fr); }
+.candidate-modal .detail-text { white-space: pre-wrap; }
+.status-badge-lg { font-size: 14px !important; padding: 8px 16px !important; }
+
+/* Candidate responsive */
+@media (max-width: 720px) {
+  .candidate-header-inner, .candidate-main { width: min(100% - 26px, 1160px); }
+  .candidate-header-bar { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .candidate-modal .info-grid { grid-template-columns: 1fr; }
+  .auth-card { padding: 32px 24px; }
+}

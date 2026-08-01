@@ -31,6 +31,9 @@ import { CareersPage } from '@/pages/CareersPage';
 import { JobPage } from '@/pages/JobPage';
 import { ApplicationSuccess } from '@/pages/ApplicationSuccess';
 import { AdminDashboard } from '@/pages/Admin/AdminDashboard';
+import { CandidateLogin } from '@/pages/CandidateLogin';
+import { CandidateVerify } from '@/pages/CandidateVerify';
+import { CandidateApplications } from '@/pages/CandidateApplications';
 import { fetchJobs } from '@/lib/jobsApi';
 
 const queryClient = new QueryClient();
@@ -76,6 +79,9 @@ function App() {
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
           <Switch>
             <Route path="/" component={Home} />
+            <Route path="/login" component={CandidateLogin} />
+            <Route path="/login/confirm" component={CandidateVerify} />
+            <Route path="/candidate/applications" component={CandidateApplications} />
             <Route path="/careers/apply/success" component={ApplicationSuccess} />
             <Route path="/careers/:slug" component={JobPage} />
             <Route path="/careers" component={CareersPage} />

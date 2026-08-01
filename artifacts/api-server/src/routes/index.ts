@@ -5,6 +5,8 @@ import contactRouter from "./contact";
 import jobsRouter from "./jobs";
 import adminRouter from "./admin";
 import authRouter from "./auth";
+import candidateAuthRouter from "./candidateAuth";
+import candidateRouter from "./candidate";
 
 const router: IRouter = Router();
 
@@ -14,5 +16,7 @@ router.use("/contact", contactRouter);
 router.use("/jobs", jobsRouter);
 router.use("/admin", authRouter);
 router.use("/admin", adminRouter);
+router.use("/auth", candidateAuthRouter);
+router.use("/candidate", candidateRouter);
 
 export default router;

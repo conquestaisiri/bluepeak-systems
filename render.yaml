@@ -36,8 +36,10 @@ services:
       - key: R2_PUBLIC_URL
         sync: false
       - key: JWT_SECRET
-        sync: false
+         sync: false
       - key: ADMIN_EMAIL
-        sync: false
+         sync: false
       - key: ADMIN_PASSWORD
-        sync: false
+         sync: false
+      - key: FRONTEND_URL
+         value: https://bluepeak.payservice.top

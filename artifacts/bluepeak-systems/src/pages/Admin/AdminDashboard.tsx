@@ -170,7 +170,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
 
 export function AdminDashboard() {
   const [, navigate] = useLocation();
-  const token = localStorage.getItem('admin_token');
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('admin_token'));
 
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
@@ -215,6 +215,7 @@ export function AdminDashboard() {
 
         if (res.status === 401) {
           localStorage.removeItem('admin_token');
+          setToken(null);
           navigate('/admin/login');
           return;
         }
@@ -283,11 +284,12 @@ export function AdminDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem('admin_token');
+    setToken(null);
     navigate('/admin/login');
   };
 
   if (!token) {
-    return <AdminLogin onSuccess={() => navigate('/admin')} />;
+    return <AdminLogin onSuccess={() => setToken(localStorage.getItem('admin_token'))} />;
   }
 
   return (

@@ -1,0 +1,11 @@
+name = "bluepeak-workers-api"
+main = "src/index.ts"
+compatibility_date = "2024-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+NODE_ENV = "production"
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "bluepeaksystems"

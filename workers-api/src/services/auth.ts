@@ -19,13 +19,17 @@ function randomToken(): string {
 async function hashToken(token: string): Promise<string> {
   const data = new TextEncoder().encode(token);
   const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(new Uint8Array(digest), (b) =>
+    b.toString(16).padStart(2, "0"),
+  ).join("");
 }
 
 function getFrontendUrl(): string {
   const url = (getEnv().FRONTEND_URL ?? "").trim();
   if (!url) {
-    console.warn("FRONTEND_URL not set - magic links will be relative. Set FRONTEND_URL in production.");
+    console.warn(
+      "FRONTEND_URL not set - magic links will be relative. Set FRONTEND_URL in production.",
+    );
     return "";
   }
   return url.replace(/\/$/, "");
@@ -34,11 +38,12 @@ function getFrontendUrl(): string {
 export const authService = {
   async generateMagicToken(email: string): Promise<string> {
     const token = randomToken();
+    const tokenHash = await hashToken(token);
     const normalizedEmail = email.toLowerCase().trim();
     const expiresAt = new Date(Date.now() + MAGIC_LINK_TTL);
 
     await authRepository.createMagicToken({
-      token,
+      token: tokenHash,
       email: normalizedEmail,
       expiresAt,
     });
@@ -49,12 +54,13 @@ export const authService = {
   },
 
   async consumeMagicToken(token: string): Promise<string | null> {
-    const magicToken = await authRepository.findMagicToken(token);
+    const tokenHash = await hashToken(token);
+    const magicToken = await authRepository.findMagicToken(tokenHash);
     if (!magicToken) {
       return null;
     }
 
-    const consumed = await authRepository.consumeMagicToken(token);
+    const consumed = await authRepository.consumeMagicToken(tokenHash);
     if (!consumed) {
       return null;
     }
@@ -75,14 +81,25 @@ export const authService = {
 
     void authRepository.cleanupExpiredSessions();
 
-    return new SignJWT({ sessionToken, email: email.toLowerCase().trim(), role: "candidate" })
+    return new SignJWT({
+      sessionToken,
+      email: email.toLowerCase().trim(),
+      role: "candidate",
+    })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime("7d")
       .sign(getJwtSecret());
   },
 
-  async verifySessionToken(token: string): Promise<{ id: string; email: string; role: string; sessionToken?: string } | null> {
+  async verifySessionToken(
+    token: string,
+  ): Promise<{
+    id: string;
+    email: string;
+    role: string;
+    sessionToken?: string;
+  } | null> {
     try {
       const { payload } = await jwtVerify(token, getJwtSecret());
       const email = payload.email as string;
@@ -97,14 +114,17 @@ export const authService = {
     }
   },
 
-  async validateSessionToken(token: string): Promise<{ email: string; valid: boolean } | null> {
+  async validateSessionToken(
+    token: string,
+  ): Promise<{ email: string; valid: boolean } | null> {
     const decoded = await this.verifySessionToken(token);
     if (!decoded || !decoded.sessionToken) {
       return null;
     }
 
     const tokenHash = await hashToken(decoded.sessionToken);
-    const session = await authRepository.findCandidateSessionByTokenHash(tokenHash);
+    const session =
+      await authRepository.findCandidateSessionByTokenHash(tokenHash);
 
     if (!session) {
       return { email: decoded.email, valid: false };

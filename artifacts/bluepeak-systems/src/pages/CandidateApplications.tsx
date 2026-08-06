@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'wouter';
+import { useState, useEffect } from "react";
+import { Link } from "wouter";
 import {
   MapPin,
   Briefcase,
@@ -17,25 +17,33 @@ import {
   ChevronRight,
   ArrowLeft,
   ArrowUpRight,
-} from 'lucide-react';
-import { SiteLayout } from '@/components/site/SiteLayout';
-import { format } from 'date-fns';
+  Video,
+} from "lucide-react";
+import { SiteLayout } from "@/components/site/SiteLayout";
+import { format } from "date-fns";
+import { parseDateOnly } from "@/lib/utils";
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 const STATUS_COLORS: Record<string, string> = {
-  New: 'bg-blue-100 text-blue-800',
-  Reviewing: 'bg-yellow-100 text-yellow-800',
-  Shortlisted: 'bg-purple-100 text-purple-800',
-  Rejected: 'bg-red-100 text-red-800',
-  Hired: 'bg-green-100 text-green-800',
+  New: "bg-blue-100 text-blue-800",
+  Reviewing: "bg-yellow-100 text-yellow-800",
+  Shortlisted: "bg-purple-100 text-purple-800",
+  Rejected: "bg-red-100 text-red-800",
+  Hired: "bg-green-100 text-green-800",
 };
 
-function StatusBadge({ status, className = '' }: { status: string; className?: string }) {
+function StatusBadge({
+  status,
+  className = "",
+}: {
+  status: string;
+  className?: string;
+}) {
   return (
     <span
       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-        STATUS_COLORS[status] || 'bg-gray-100 text-gray-800'
+        STATUS_COLORS[status] || "bg-gray-100 text-gray-800"
       } ${className}`}
     >
       {status}
@@ -68,6 +76,9 @@ interface Application {
   resumeFilename: string | null;
   status: string;
   referenceCode: string;
+  meetLink: string | null;
+  interviewInstructions: string | null;
+  meetingKey: string | null;
 }
 
 interface CandidateResponse {
@@ -75,15 +86,17 @@ interface CandidateResponse {
 }
 
 export function CandidateApplications() {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('candidate_token'));
+  const [token, setToken] = useState<string | null>(() =>
+    localStorage.getItem("candidate_token"),
+  );
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
 
   useEffect(() => {
     if (!token) {
-      window.location.href = '/login';
+      window.location.href = "/login";
       return;
     }
 
@@ -91,7 +104,7 @@ export function CandidateApplications() {
 
     const fetchApplications = async () => {
       setLoading(true);
-      setError('');
+      setError("");
 
       try {
         const res = await fetch(`${API_BASE}/api/candidate/applications`, {
@@ -99,19 +112,22 @@ export function CandidateApplications() {
         });
 
         if (res.status === 401) {
-          localStorage.removeItem('candidate_token');
-          window.location.href = '/login';
+          localStorage.removeItem("candidate_token");
+          window.location.href = "/login";
           return;
         }
 
-        if (!res.ok) throw new Error('Failed to fetch applications');
+        if (!res.ok) throw new Error("Failed to fetch applications");
 
         const data: CandidateResponse = await res.json();
         if (!cancelled) {
           setApplications(data.applications);
         }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load applications');
+        if (!cancelled)
+          setError(
+            err instanceof Error ? err.message : "Failed to load applications",
+          );
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -124,33 +140,39 @@ export function CandidateApplications() {
   }, [token]);
 
   const handleLogout = () => {
-    localStorage.removeItem('candidate_token');
-    window.location.href = '/login';
+    localStorage.removeItem("candidate_token");
+    window.location.href = "/login";
   };
 
   const handleDownloadResume = async (application: Application) => {
     if (!application.resumePath) return;
     try {
-      const res = await fetch(`${API_BASE}/api/candidate/applications/${application.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to get application details');
+      const res = await fetch(
+        `${API_BASE}/api/candidate/applications/${application.id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (!res.ok) throw new Error("Failed to get application details");
       const data = await res.json();
       if (data.application?.resumePath) {
-        const downloadRes = await fetch(`${API_BASE}/api/candidate/applications/${application.id}/resume`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const downloadRes = await fetch(
+          `${API_BASE}/api/candidate/applications/${application.id}/resume`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
         // The backend redirects to presigned URL
         const blob = await downloadRes.blob();
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
-        a.download = application.resumeFilename || 'resume.pdf';
+        a.download = application.resumeFilename || "resume.pdf";
         a.click();
         URL.revokeObjectURL(url);
       }
     } catch {
-      alert('Failed to download resume');
+      alert("Failed to download resume");
     }
   };
 
@@ -164,12 +186,21 @@ export function CandidateApplications() {
         <header className="candidate-header">
           <div className="container candidate-header-inner">
             <Link href="/" className="candidate-brand">
-              <span className="brand-mark"><span /></span>
-              <span>bluepeak<span className="brand-dot">.</span></span>
+              <img
+                src="/bluepeak-mark.svg"
+                alt="BluePeak Systems"
+                className="candidate-logo"
+              />
             </Link>
             <div className="candidate-header-actions">
-              <span className="candidate-user">{applications.length} application{applications.length !== 1 ? 's' : ''}</span>
-              <button onClick={handleLogout} className="button button-ghost button-sm">
+              <span className="candidate-user">
+                {applications.length} application
+                {applications.length !== 1 ? "s" : ""}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="button button-ghost button-sm"
+              >
                 <ArrowLeft size={14} /> Sign out
               </button>
             </div>
@@ -180,7 +211,9 @@ export function CandidateApplications() {
           <div className="container">
             <div className="candidate-header-bar">
               <h1 className="candidate-title">My Applications</h1>
-              <p className="candidate-subtitle">Track the status of your applications and manage your profile.</p>
+              <p className="candidate-subtitle">
+                Track the status of your applications and manage your profile.
+              </p>
             </div>
 
             {error && (
@@ -222,14 +255,18 @@ export function CandidateApplications() {
                         <td>
                           <div className="position-info">
                             <div className="position-title">{app.position}</div>
-                            <div className="position-reference">Ref: {app.referenceCode}</div>
+                            <div className="position-reference">
+                              Ref: {app.referenceCode}
+                            </div>
                           </div>
                         </td>
                         <td>
-                          <div className="position-department">{app.position}</div>
+                          <div className="position-department">
+                            {app.position}
+                          </div>
                         </td>
                         <td className="date-cell">
-                          {format(new Date(app.createdAt), 'MMM d, yyyy')}
+                          {format(new Date(app.createdAt), "MMM d, yyyy")}
                         </td>
                         <td>
                           <StatusBadge status={app.status} />
@@ -284,26 +321,31 @@ function CandidateApplicationModal({
   onClose: () => void;
   token: string;
 }) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'details' | 'resume'>('overview');
+  const [activeTab, setActiveTab] = useState<"overview" | "details" | "resume">(
+    "overview",
+  );
   const [downloading, setDownloading] = useState(false);
 
   const handleDownloadResume = async () => {
     if (!application.resumePath) return;
     setDownloading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/candidate/applications/${application.id}/resume`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error('Failed to download');
+      const res = await fetch(
+        `${API_BASE}/api/candidate/applications/${application.id}/resume`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (!res.ok) throw new Error("Failed to download");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = application.resumeFilename || 'resume.pdf';
+      a.download = application.resumeFilename || "resume.pdf";
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert('Failed to download resume');
+      alert("Failed to download resume");
     } finally {
       setDownloading(false);
     }
@@ -311,36 +353,92 @@ function CandidateApplicationModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content candidate-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-content candidate-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <div>
             <h2>{application.fullName}</h2>
-            <span className="modal-position">{application.position} &mdash; {application.referenceCode}</span>
+            <span className="modal-position">
+              {application.position} &mdash; {application.referenceCode}
+            </span>
           </div>
           <button onClick={onClose} className="modal-close" aria-label="Close">
             <X size={20} />
           </button>
         </div>
 
+        {application.status === "Shortlisted" && application.meetLink && (
+          <div className="next-step-panel">
+            <div className="next-step-icon">
+              <Video size={22} />
+            </div>
+            <div className="next-step-body">
+              <h3>Your next step: Interview invitation</h3>
+              <p className="next-step-copy">
+                Congratulations on being shortlisted! Your official BluePeak
+                invitation is ready. Open it using the link below and follow the
+                instructions to complete your setup.
+              </p>
+              <a
+                href={application.meetLink}
+                target="_blank"
+                rel="noreferrer"
+                className="next-step-link"
+              >
+                Open your BluePeak invitation <ArrowUpRight size={16} />
+              </a>
+              {application.meetingKey && (
+                <div className="next-step-instructions">
+                  <strong>Your private access key:</strong>
+                  <p>
+                    <code>{application.meetingKey}</code>
+                  </p>
+                </div>
+              )}
+              {application.interviewInstructions && (
+                <div className="next-step-instructions">
+                  <strong>Next steps:</strong>
+                  <p style={{ whiteSpace: "pre-wrap" }}>
+                    {application.interviewInstructions}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="modal-tabs">
-          <button className={activeTab === 'overview' ? 'active' : ''} onClick={() => setActiveTab('overview')}>
+          <button
+            className={activeTab === "overview" ? "active" : ""}
+            onClick={() => setActiveTab("overview")}
+          >
             Overview
           </button>
-          <button className={activeTab === 'details' ? 'active' : ''} onClick={() => setActiveTab('details')}>
+          <button
+            className={activeTab === "details" ? "active" : ""}
+            onClick={() => setActiveTab("details")}
+          >
             Details
           </button>
-          <button className={activeTab === 'resume' ? 'active' : ''} onClick={() => setActiveTab('resume')}>
+          <button
+            className={activeTab === "resume" ? "active" : ""}
+            onClick={() => setActiveTab("resume")}
+          >
             Resume & Files
           </button>
         </div>
 
         <div className="modal-body">
-          {activeTab === 'overview' && (
+          {activeTab === "overview" && (
             <div className="modal-section">
               <div className="info-grid">
                 <div className="info-item">
                   <label>Email</label>
-                  <a href={`mailto:${application.email}`}>{application.email}</a>
+                  <a href={`mailto:${application.email}`}>
+                    {application.email}
+                  </a>
                 </div>
                 <div className="info-item">
                   <label>Phone</label>
@@ -348,7 +446,9 @@ function CandidateApplicationModal({
                 </div>
                 <div className="info-item">
                   <label>Location</label>
-                  <span>{application.city}, {application.country}</span>
+                  <span>
+                    {application.city}, {application.country}
+                  </span>
                 </div>
                 <div className="info-item">
                   <label>Timezone</label>
@@ -376,12 +476,21 @@ function CandidateApplicationModal({
                 </div>
                 <div className="info-item">
                   <label>Earliest Start</label>
-                  <span>{format(new Date(application.earliestStartDate), 'MMM d, yyyy')}</span>
+                  <span>
+                    {format(
+                      parseDateOnly(application.earliestStartDate),
+                      "MMM d, yyyy",
+                    )}
+                  </span>
                 </div>
                 {application.linkedinUrl && (
                   <div className="info-item">
                     <label>LinkedIn</label>
-                    <a href={application.linkedinUrl} target="_blank" rel="noreferrer">
+                    <a
+                      href={application.linkedinUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       <Linkedin size={14} /> View Profile
                     </a>
                   </div>
@@ -389,7 +498,11 @@ function CandidateApplicationModal({
                 {application.portfolioUrl && (
                   <div className="info-item">
                     <label>Portfolio</label>
-                    <a href={application.portfolioUrl} target="_blank" rel="noreferrer">
+                    <a
+                      href={application.portfolioUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       <Globe size={14} /> View Portfolio
                     </a>
                   </div>
@@ -398,7 +511,7 @@ function CandidateApplicationModal({
             </div>
           )}
 
-          {activeTab === 'details' && (
+          {activeTab === "details" && (
             <div className="modal-section">
               <div className="detail-group">
                 <h4>Skills</h4>
@@ -415,7 +528,7 @@ function CandidateApplicationModal({
             </div>
           )}
 
-          {activeTab === 'resume' && (
+          {activeTab === "resume" && (
             <div className="modal-section">
               {application.resumeFilename ? (
                 <div className="resume-info">
@@ -429,15 +542,21 @@ function CandidateApplicationModal({
                     disabled={downloading}
                     className="button button-blue"
                   >
-                    {downloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                    {downloading ? ' Downloading...' : ' Download Resume'}
+                    {downloading ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Download size={16} />
+                    )}
+                    {downloading ? " Downloading..." : " Download Resume"}
                   </button>
                 </div>
               ) : (
                 <div className="no-resume">
                   <FileText size={48} className="text-slate-300" />
                   <h4>No resume uploaded</h4>
-                  <p className="text-slate-500">You did not attach a resume file to this application.</p>
+                  <p className="text-slate-500">
+                    You did not attach a resume file to this application.
+                  </p>
                 </div>
               )}
             </div>
@@ -446,8 +565,13 @@ function CandidateApplicationModal({
 
         <div className="modal-footer">
           <div className="modal-status-row">
-            <StatusBadge status={application.status} className="status-badge-lg" />
-            <span className="modal-applied">Applied {format(new Date(application.createdAt), 'MMMM d, yyyy')}</span>
+            <StatusBadge
+              status={application.status}
+              className="status-badge-lg"
+            />
+            <span className="modal-applied">
+              Applied {format(new Date(application.createdAt), "MMMM d, yyyy")}
+            </span>
           </div>
         </div>
       </div>

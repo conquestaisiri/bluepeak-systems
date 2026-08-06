@@ -39,7 +39,7 @@ services:
       - name: PORT
         value: "8080"
       - name: FRONTEND_URL
-        value: https://bluepeak.payservice.top
+        value: ${{secrets.FRONTEND_URL}}
     ports:
       - port: 8080
         protocol: http

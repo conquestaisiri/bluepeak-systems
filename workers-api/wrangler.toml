@@ -5,6 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 NODE_ENV = "production"
+FRONTEND_URL = "https://bluepeak.payservice.top"
 
 [[r2_buckets]]
 binding = "R2_BUCKET"

@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'wouter';
-import { Loader2, CheckCircle, AlertCircle, Mail, ArrowUpRight } from 'lucide-react';
+import { Link, useSearchParams } from 'wouter';
+import { Loader2, CheckCircle, AlertCircle, ArrowUpRight } from 'lucide-react';
 import { SiteLayout } from '@/components/site/SiteLayout';
 
 export function CandidateVerify() {
-  const [location] = useLocation();
-  const params = new URLSearchParams(location.split('?')[1] || '');
-  const token = params.get('token');
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token');
 
   const [state, setState] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [message, setMessage] = useState('');
@@ -52,10 +51,7 @@ export function CandidateVerify() {
       <SiteLayout title="Signing In — BluePeak Systems">
         <div className="auth-shell">
           <div className="auth-card reveal is-visible">
-            <div className="auth-brand">
-              <span className="brand-mark"><span /></span>
-              <span>bluepeak<span className="brand-dot">.</span></span>
-            </div>
+            <div className="auth-brand"><img src="/bluepeak-mark.svg" alt="BluePeak Systems" className="candidate-logo" /></div>
             <div className="auth-verifying">
               <Loader2 size={48} className="spin" />
               <h2>Verifying your sign-in link…</h2>
@@ -72,10 +68,7 @@ export function CandidateVerify() {
       <SiteLayout title="Sign In Successful — BluePeak Systems">
         <div className="auth-shell">
           <div className="auth-card reveal is-visible">
-            <div className="auth-brand">
-              <span className="brand-mark"><span /></span>
-              <span>bluepeak<span className="brand-dot">.</span></span>
-            </div>
+            <div className="auth-brand"><img src="/bluepeak-mark.svg" alt="BluePeak Systems" className="candidate-logo" /></div>
             <div className="auth-success">
               <div className="success-icon">
                 <CheckCircle size={48} strokeWidth={1.5} />
@@ -96,10 +89,7 @@ export function CandidateVerify() {
     <SiteLayout title="Sign In Failed — BluePeak Systems">
       <div className="auth-shell">
         <div className="auth-card reveal is-visible">
-          <div className="auth-brand">
-            <span className="brand-mark"><span /></span>
-            <span>bluepeak<span className="brand-dot">.</span></span>
-          </div>
+          <div className="auth-brand"><img src="/bluepeak-mark.svg" alt="BluePeak Systems" className="candidate-logo" /></div>
           <div className="auth-error-state">
             <div className="error-icon">
               <AlertCircle size={48} strokeWidth={1.5} />

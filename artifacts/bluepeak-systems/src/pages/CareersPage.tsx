@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Link } from 'wouter';
+import { useState, useMemo, useEffect } from "react";
+import { Link } from "wouter";
 import {
   Search,
   MapPin,
@@ -12,39 +12,47 @@ import {
   X,
   Loader2,
   AlertCircle,
-} from 'lucide-react';
-import { SiteLayout } from '@/components/site/SiteLayout';
+} from "lucide-react";
+import { SiteLayout } from "@/components/site/SiteLayout";
 import {
   EXPERIENCE_LEVELS,
   EMPLOYMENT_TYPES,
   WORK_ARRANGEMENTS,
   type Job,
-} from '@/data/jobs';
-import { fetchJobs } from '@/lib/jobsApi';
+} from "@/data/jobs";
+import { fetchJobs } from "@/lib/jobsApi";
 
 const JOBS_PER_PAGE = 9;
 
 function formatDate(iso: string) {
   const d = new Date(iso);
   const now = new Date();
-  const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
+  const diffDays = Math.floor(
+    (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
   if (diffDays < 7) return `${diffDays} days ago`;
-  if (diffDays < 14) return '1 week ago';
+  if (diffDays < 14) return "1 week ago";
   if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
   return `${Math.floor(diffDays / 30)} months ago`;
 }
 
 function JobCard({ job }: { job: Job }) {
   return (
-    <Link href={`/careers/${job.slug}`} className="job-card" data-testid={`job-card-${job.slug}`}>
+    <Link
+      href={`/careers/${job.slug}`}
+      className="job-card"
+      data-testid={`job-card-${job.slug}`}
+    >
       <div className="job-card-header">
         <div>
           <span className="job-card-dept">{job.department}</span>
           <h3 className="job-card-title">{job.title}</h3>
         </div>
-        <span className="job-card-arrow"><ArrowUpRight size={18} /></span>
+        <span className="job-card-arrow">
+          <ArrowUpRight size={18} />
+        </span>
       </div>
 
       <p className="job-card-summary">{job.summary}</p>
@@ -66,7 +74,9 @@ function JobCard({ job }: { job: Job }) {
 
       <div className="job-card-footer">
         <span className="job-card-comp">{job.compensation}</span>
-        <span className="job-card-date">Posted {formatDate(job.postedDate)}</span>
+        <span className="job-card-date">
+          Posted {formatDate(job.postedDate)}
+        </span>
       </div>
 
       <div className="job-card-cta">
@@ -79,25 +89,28 @@ function JobCard({ job }: { job: Job }) {
 export function CareersPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
-  const [query, setQuery] = useState('');
-  const [department, setDepartment] = useState('');
-  const [employmentType, setEmploymentType] = useState('');
-  const [experienceLevel, setExperienceLevel] = useState('');
-  const [workArrangement, setWorkArrangement] = useState('');
+  const [loadError, setLoadError] = useState("");
+  const [query, setQuery] = useState("");
+  const [department, setDepartment] = useState("");
+  const [employmentType, setEmploymentType] = useState("");
+  const [experienceLevel, setExperienceLevel] = useState("");
+  const [workArrangement, setWorkArrangement] = useState("");
   const [visibleCount, setVisibleCount] = useState(JOBS_PER_PAGE);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setLoadError('');
+    setLoadError("");
     fetchJobs()
       .then((data) => {
         if (!cancelled) setJobs(data);
       })
       .catch(() => {
-        if (!cancelled) setLoadError('We could not load the positions right now. Please try again shortly.');
+        if (!cancelled)
+          setLoadError(
+            "We could not load the positions right now. Please try again shortly.",
+          );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -107,61 +120,99 @@ export function CareersPage() {
     };
   }, []);
 
-  const departments = useMemo(() => [...new Set(jobs.map((j) => j.department))].sort(), [jobs]);
+  const departments = useMemo(
+    () => [...new Set(jobs.map((j) => j.department))].sort(),
+    [jobs],
+  );
 
   const filtered = useMemo(() => {
     return jobs.filter((job) => {
       const q = query.toLowerCase();
-      if (q && !job.title.toLowerCase().includes(q) && !job.department.toLowerCase().includes(q) && !job.summary.toLowerCase().includes(q)) return false;
+      if (
+        q &&
+        !job.title.toLowerCase().includes(q) &&
+        !job.department.toLowerCase().includes(q) &&
+        !job.summary.toLowerCase().includes(q)
+      )
+        return false;
       if (department && job.department !== department) return false;
       if (employmentType && job.employmentType !== employmentType) return false;
-      if (experienceLevel && job.experienceLevel !== experienceLevel) return false;
-      if (workArrangement && job.workArrangement !== workArrangement) return false;
+      if (experienceLevel && job.experienceLevel !== experienceLevel)
+        return false;
+      if (workArrangement && job.workArrangement !== workArrangement)
+        return false;
       return true;
     });
-  }, [query, department, employmentType, experienceLevel, workArrangement, jobs]);
+  }, [
+    query,
+    department,
+    employmentType,
+    experienceLevel,
+    workArrangement,
+    jobs,
+  ]);
 
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
 
   const clearFilters = () => {
-    setQuery('');
-    setDepartment('');
-    setEmploymentType('');
-    setExperienceLevel('');
-    setWorkArrangement('');
+    setQuery("");
+    setDepartment("");
+    setEmploymentType("");
+    setExperienceLevel("");
+    setWorkArrangement("");
     setVisibleCount(JOBS_PER_PAGE);
   };
 
-  const hasActiveFilters = query || department || employmentType || experienceLevel || workArrangement;
+  const hasActiveFilters =
+    query || department || employmentType || experienceLevel || workArrangement;
 
   return (
     <SiteLayout
       title="Careers — BluePeak Systems"
-      description="Explore open positions at BluePeak Systems. Remote roles across operations, customer success, sales, marketing, finance, and more."
+      description="Explore open positions at BluePeak Systems — remote, hybrid, and on-site. Roles across operations, support, sales, marketing, finance, warehousing, hospitality, and more."
     >
       {/* Hero */}
       <section className="careers-hero section-dark">
-        <div className="hero-grid" style={{ opacity: 0.15 }} />
         <div className="container">
-          <div className="section-kicker light-eyebrow reveal" style={{ marginBottom: '20px' }}>
-            <span className="eyebrow-line" />OPEN POSITIONS
+          <div
+            className="section-kicker light-eyebrow reveal"
+            style={{ marginBottom: "20px" }}
+          >
+            <span className="eyebrow-line" />
+            OPEN POSITIONS
           </div>
           <h1 className="careers-hero-title reveal">
-            Find your next<br /><em>opportunity.</em>
+            Browse our
+            <br />
+            <em>open roles.</em>
           </h1>
           <p className="careers-hero-sub reveal">
-            We connect ambitious professionals with remote roles at companies that value the work — and the human doing it. Browse our current openings below.
+            Every position below is real and open, with a clear description and
+            a simple way to apply — whether the work happens from home, in an
+            office, or out on-site. If you see a good fit, apply—it takes a few
+            minutes.
           </p>
           <div className="careers-hero-stats reveal">
-            <span><strong>{jobs.length}</strong> open positions</span>
+            <span>
+              <strong>{jobs.length}</strong> open positions
+            </span>
             <span className="stat-sep">·</span>
-            <span><strong>100%</strong> remote</span>
+            <span>
+              <strong>Remote</strong> + on-site
+            </span>
             <span className="stat-sep">·</span>
-            <span><strong>28</strong> countries</span>
+            <span>
+              <strong>28</strong> countries
+            </span>
           </div>
         </div>
-        <div className="hero-orbit orbit-one" style={{ opacity: 0.25 }} />
+        <div className="careers-hero-people" aria-label="People working across different roles">
+          <figure><img src="/work-office.jpg" alt="Professional team member" /></figure>
+          <figure><img src="/work-warehouse.jpg" alt="Warehouse and logistics team member" /></figure>
+          <figure><img src="/work-facilities.jpg" alt="Facilities team member" /></figure>
+          <span className="careers-hero-people-note">Different roles.<br /><strong>One standard of care.</strong></span>
+        </div>
       </section>
 
       {/* Search + Filters */}
@@ -174,18 +225,25 @@ export function CareersPage() {
                 type="search"
                 placeholder="Search by title, department, or keyword…"
                 value={query}
-                onChange={(e) => { setQuery(e.target.value); setVisibleCount(JOBS_PER_PAGE); }}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setVisibleCount(JOBS_PER_PAGE);
+                }}
                 className="careers-search"
                 aria-label="Search positions"
               />
               {query && (
-                <button className="search-clear" onClick={() => setQuery('')} aria-label="Clear search">
+                <button
+                  className="search-clear"
+                  onClick={() => setQuery("")}
+                  aria-label="Clear search"
+                >
                   <X size={14} />
                 </button>
               )}
             </div>
             <button
-              className={`filters-toggle ${filtersOpen ? 'active' : ''}`}
+              className={`filters-toggle ${filtersOpen ? "active" : ""}`}
               onClick={() => setFiltersOpen(!filtersOpen)}
             >
               <SlidersHorizontal size={15} /> Filters
@@ -196,31 +254,83 @@ export function CareersPage() {
           {filtersOpen && (
             <div className="careers-filters">
               <div className="filter-group">
-                <label>Department<ChevronDown size={13} /></label>
-                <select value={department} onChange={(e) => { setDepartment(e.target.value); setVisibleCount(JOBS_PER_PAGE); }}>
+                <label>
+                  Department
+                  <ChevronDown size={13} />
+                </label>
+                <select
+                  value={department}
+                  onChange={(e) => {
+                    setDepartment(e.target.value);
+                    setVisibleCount(JOBS_PER_PAGE);
+                  }}
+                >
                   <option value="">All departments</option>
-                  {departments.map((d) => <option key={d} value={d}>{d}</option>)}
+                  {departments.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="filter-group">
-                <label>Employment type<ChevronDown size={13} /></label>
-                <select value={employmentType} onChange={(e) => { setEmploymentType(e.target.value); setVisibleCount(JOBS_PER_PAGE); }}>
+                <label>
+                  Employment type
+                  <ChevronDown size={13} />
+                </label>
+                <select
+                  value={employmentType}
+                  onChange={(e) => {
+                    setEmploymentType(e.target.value);
+                    setVisibleCount(JOBS_PER_PAGE);
+                  }}
+                >
                   <option value="">All types</option>
-                  {EMPLOYMENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                  {EMPLOYMENT_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="filter-group">
-                <label>Experience level<ChevronDown size={13} /></label>
-                <select value={experienceLevel} onChange={(e) => { setExperienceLevel(e.target.value); setVisibleCount(JOBS_PER_PAGE); }}>
+                <label>
+                  Experience level
+                  <ChevronDown size={13} />
+                </label>
+                <select
+                  value={experienceLevel}
+                  onChange={(e) => {
+                    setExperienceLevel(e.target.value);
+                    setVisibleCount(JOBS_PER_PAGE);
+                  }}
+                >
                   <option value="">All levels</option>
-                  {EXPERIENCE_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                  {EXPERIENCE_LEVELS.map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="filter-group">
-                <label>Work arrangement<ChevronDown size={13} /></label>
-                <select value={workArrangement} onChange={(e) => { setWorkArrangement(e.target.value); setVisibleCount(JOBS_PER_PAGE); }}>
+                <label>
+                  Work arrangement
+                  <ChevronDown size={13} />
+                </label>
+                <select
+                  value={workArrangement}
+                  onChange={(e) => {
+                    setWorkArrangement(e.target.value);
+                    setVisibleCount(JOBS_PER_PAGE);
+                  }}
+                >
                   <option value="">All arrangements</option>
-                  {WORK_ARRANGEMENTS.map((w) => <option key={w} value={w}>{w}</option>)}
+                  {WORK_ARRANGEMENTS.map((w) => (
+                    <option key={w} value={w}>
+                      {w}
+                    </option>
+                  ))}
                 </select>
               </div>
               {hasActiveFilters && (
@@ -249,44 +359,57 @@ export function CareersPage() {
               <p>{loadError}</p>
             </div>
           ) : (
-          <>
-          <div className="careers-results-header">
-            <span className="results-count">
-              <strong>{filtered.length}</strong> position{filtered.length !== 1 ? 's' : ''} found
-              {hasActiveFilters && ' · '}
-              {hasActiveFilters && (
-                <button className="inline-clear" onClick={clearFilters}>Clear filters</button>
-              )}
-            </span>
-            <span className="results-sort">Sorted by most recent</span>
-          </div>
-
-          {filtered.length === 0 ? (
-            <div className="no-results">
-              <Search size={40} />
-              <h3>No positions match your criteria</h3>
-              <p>Try adjusting your search or filters to find what you're looking for.</p>
-              <button className="button button-blue" onClick={clearFilters}>Clear all filters</button>
-            </div>
-          ) : (
             <>
-              <div className="jobs-grid">
-                {visible.map((job) => <JobCard key={job.slug} job={job} />)}
+              <div className="careers-results-header">
+                <span className="results-count">
+                  <strong>{filtered.length}</strong> position
+                  {filtered.length !== 1 ? "s" : ""} found
+                  {hasActiveFilters && " · "}
+                  {hasActiveFilters && (
+                    <button className="inline-clear" onClick={clearFilters}>
+                      Clear filters
+                    </button>
+                  )}
+                </span>
+                <span className="results-sort">Sorted by most recent</span>
               </div>
 
-              {hasMore && (
-                <div className="load-more-wrap">
-                  <button
-                    className="button button-dark"
-                    onClick={() => setVisibleCount((c) => c + JOBS_PER_PAGE)}
-                  >
-                    Load more positions ({filtered.length - visibleCount} remaining)
+              {filtered.length === 0 ? (
+                <div className="no-results">
+                  <Search size={40} />
+                  <h3>No positions match your criteria</h3>
+                  <p>
+                    Try adjusting your search or filters to find what you're
+                    looking for.
+                  </p>
+                  <button className="button button-blue" onClick={clearFilters}>
+                    Clear all filters
                   </button>
                 </div>
+              ) : (
+                <>
+                  <div className="jobs-grid">
+                    {visible.map((job) => (
+                      <JobCard key={job.slug} job={job} />
+                    ))}
+                  </div>
+
+                  {hasMore && (
+                    <div className="load-more-wrap">
+                      <button
+                        className="button button-dark"
+                        onClick={() =>
+                          setVisibleCount((c) => c + JOBS_PER_PAGE)
+                        }
+                      >
+                        Load more positions ({filtered.length - visibleCount}{" "}
+                        remaining)
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </>
-          )}
-          </>
           )}
         </div>
       </div>
@@ -295,15 +418,29 @@ export function CareersPage() {
       <section className="careers-cta-band section-dark">
         <div className="container careers-cta-inner">
           <div>
-            <div className="section-kicker light-eyebrow" style={{ marginBottom: 16 }}>NOT SEEING THE RIGHT FIT?</div>
-            <h2 className="careers-cta-heading">Tell us about yourself.</h2>
+            <div
+              className="section-kicker light-eyebrow"
+              style={{ marginBottom: 16 }}
+            >
+              DON'T SEE THE RIGHT ROLE?
+            </div>
+            <h2 className="careers-cta-heading">Send us your CV.</h2>
             <p className="careers-cta-sub">
-              We are always interested in connecting with talented professionals. Send your CV to{' '}
-              <a href="mailto:careers.bluepeak@payservice.top" className="cta-email">careers.bluepeak@payservice.top</a>{' '}
-              and we will keep you in mind for future opportunities.
+              We keep a pool of strong candidates and match them to roles as
+              they open. Email your CV to{" "}
+              <a
+                href="mailto:careers.bluepeak@payservice.top"
+                className="cta-email"
+              >
+                careers.bluepeak@payservice.top
+              </a>{" "}
+              and we will reach out when something fits.
             </p>
           </div>
-          <a href="mailto:careers.bluepeak@payservice.top" className="button button-mint">
+          <a
+            href="mailto:careers.bluepeak@payservice.top"
+            className="button button-mint"
+          >
             Get in touch <ArrowUpRight size={17} />
           </a>
         </div>

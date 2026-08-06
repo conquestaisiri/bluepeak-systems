@@ -193,6 +193,30 @@ export function interpolate(
   );
 }
 
+// Runs tasks with bounded concurrency to keep a single Worker invocation
+// within CPU time limits while emailing many referrals at once.
+async function runWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  const queue = [...items];
+  const inFlight: Promise<void>[] = [];
+  while (queue.length > 0 || inFlight.length > 0) {
+    while (inFlight.length < limit && queue.length > 0) {
+      const item = queue.shift() as T;
+      const p = worker(item).finally(() => {
+        const idx = inFlight.indexOf(p);
+        if (idx !== -1) inFlight.splice(idx, 1);
+      });
+      inFlight.push(p);
+    }
+    if (inFlight.length > 0) {
+      await Promise.race(inFlight);
+    }
+  }
+}
+
 export const referralService = {
   async create(input: CreateReferralInput) {
     const email = input.email?.trim().toLowerCase() || null;
@@ -372,31 +396,41 @@ export const referralService = {
         : ids.length;
     const cap = Math.min(requested, status.remaining);
     const sendable = ids.slice(0, Math.max(0, cap));
-    const content = await referralRepository.getContent();
 
-    let sent = 0;
     const failed: Array<{ id: string; name: string; error: string }> = [];
+    let sent = 0;
+    const dailyCap = status.remaining;
 
-    for (const id of sendable) {
+    await runWithConcurrency(sendable, 4, async (id) => {
       const referral = await referralRepository.findById(id);
       if (!referral) {
         failed.push({ id, name: "unknown", error: "Not found" });
-        continue;
+        return;
       }
       if (!referral.email) {
-        failed.push({ id, name: referral.fullName, error: "No email address" });
-        continue;
+        failed.push({
+          id,
+          name: referral.fullName,
+          error: "No email address",
+        });
+        return;
       }
       if (referral.status === "Sent") {
-        failed.push({ id, name: referral.fullName, error: "Already sent" });
-        continue;
+        failed.push({
+          id,
+          name: referral.fullName,
+          error: "Already sent",
+        });
+        return;
       }
       try {
+        const content = await this.getContentForReferral(referral);
         const vars = {
           name: referral.fullName,
           position: referral.jobTitle ?? "this role",
           referredBy: referral.referredBy ?? "a member of our team",
           code: referral.referralCode,
+          link: `${referral.meetingUrl}?ref=${referral.referralCode}`,
         };
         await emailService.sendReferralInvitation({
           email: referral.email,
@@ -414,8 +448,13 @@ export const referralService = {
           ctaLabel: content.emailCtaLabel ?? "Open my invitation",
           closing: interpolate(content.emailClosing ?? "", vars),
         });
-        await referralRepository.markSent(id, new Date());
-        sent++;
+        // Atomically claim this send. markSent only succeeds if the row was
+        // not already "Sent", which prevents duplicate emails under concurrency
+        // and concurrent admin tabs. Also stop once the daily limit is reached.
+        const claimed = await referralRepository.markSent(id, new Date());
+        if (claimed && sent < dailyCap) {
+          sent++;
+        }
       } catch (err) {
         failed.push({
           id,
@@ -423,7 +462,7 @@ export const referralService = {
           error: (err as Error).message,
         });
       }
-    }
+    });
 
     const updatedStatus = await this.getSendStatus();
     return { sent, failed, status: updatedStatus };

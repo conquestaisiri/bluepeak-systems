@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useCallback } from "react";
+﻿import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   Pencil,
   Trash2,
@@ -14,8 +14,10 @@ import {
   FileUp,
   CheckCircle2,
   MousePointerClick,
+  RotateCcw,
 } from "lucide-react";
 import { ImportModal } from "@/pages/Admin/ImportModal";
+import { handleAdminUnauthorized, isUnauthorized } from "@/lib/adminAuth";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const FRONTEND_BASE =
@@ -270,9 +272,22 @@ function ContentEditor({
 }) {
   const [draft, setDraft] = useState<ContentMap>(content);
   const [activeTab, setActiveTab] = useState<ContentTab>("Page");
-  const [applyToAll, setApplyToAll] = useState(true);
+  const [applyToAll, setApplyToAll] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const dirty = useRef(false);
+
+  // The `content` source is fetched asynchronously by the parent. Sync the
+  // draft whenever it arrives/changes, but never clobber edits the admin has
+  // already made in this editor session.
+  useEffect(() => {
+    if (!dirty.current) setDraft(content);
+  }, [content]);
+
+  const handleDraftChange = (key: string, value: string): void => {
+    dirty.current = true;
+    setDraft((d) => ({ ...d, [key]: value }));
+  };
 
   const fields = CONTENT_FIELDS.filter((f) => f.group === activeTab);
   const isSelected = scope?.type === "selected";
@@ -359,9 +374,7 @@ function ContentEditor({
               {field.textarea ? (
                 <textarea
                   value={draft[field.key] ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, [field.key]: e.target.value }))
-                  }
+                  onChange={(e) => handleDraftChange(field.key, e.target.value)}
                   rows={
                     field.key.includes("Body") ||
                     field.key.includes("emailBody") ||
@@ -374,9 +387,7 @@ function ContentEditor({
               ) : (
                 <input
                   value={draft[field.key] ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, [field.key]: e.target.value }))
-                  }
+                  onChange={(e) => handleDraftChange(field.key, e.target.value)}
                 />
               )}
             </div>
@@ -714,6 +725,10 @@ export function ReferralsAdmin({ token }: { token: string }) {
       const res = await fetch(`${API_BASE}/api/admin/referrals?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (isUnauthorized(res)) {
+        handleAdminUnauthorized();
+        return;
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch referrals");
       setReferrals(data.referrals);
@@ -736,6 +751,10 @@ export function ReferralsAdmin({ token }: { token: string }) {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
+      if (isUnauthorized(sRes) || isUnauthorized(cRes)) {
+        handleAdminUnauthorized();
+        return;
+      }
       if (sRes.ok) {
         const s = await sRes.json();
         if (s?.status) setStatus(s.status);
@@ -777,10 +796,21 @@ export function ReferralsAdmin({ token }: { token: string }) {
     });
   };
 
+  // Only non-"Sent" rows can be individually selected (their checkboxes are
+  // disabled), so "select all" and the header state must be based on the
+  // selectable rows rather than every row. Otherwise disabled rows leak into
+  // `selected` and can only be cleared via the header.
+  const selectableCount = useMemo(
+    () => referrals.filter((r) => r.status !== "Sent").length,
+    [referrals],
+  );
+
   const toggleAll = () => {
     setSelected((prev) => {
-      if (prev.size === referrals.length) return new Set();
-      return new Set(referrals.map((r) => r.id));
+      if (prev.size === selectableCount) return new Set();
+      return new Set(
+        referrals.filter((r) => r.status !== "Sent").map((r) => r.id),
+      );
     });
   };
 
@@ -871,6 +901,33 @@ export function ReferralsAdmin({ token }: { token: string }) {
     if (!res.ok) throw new Error(data.error || "Failed to save content");
     setContent(data.content);
     setContentOpen(null);
+  };
+
+  const revertSelectedToDefaults = async () => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (
+      !window.confirm(
+        "Revert the selected referrals' custom page/email content back to the live defaults? This clears their per-referral overrides.",
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/referrals/content/reset`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to revert content");
+      setSelected(new Set());
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to revert content");
+    }
   };
 
   const sendSelected = async () => {
@@ -1002,6 +1059,12 @@ export function ReferralsAdmin({ token }: { token: string }) {
             >
               <Eye size={15} /> Edit page &amp; email
             </button>
+            <button
+              onClick={revertSelectedToDefaults}
+              className="button button-outline button-sm"
+            >
+              <RotateCcw size={15} /> Revert to defaults
+            </button>
             <input
               type="number"
               min={1}
@@ -1054,7 +1117,7 @@ export function ReferralsAdmin({ token }: { token: string }) {
                   <input
                     type="checkbox"
                     checked={
-                      selected.size === referrals.length && referrals.length > 0
+                      selectableCount > 0 && selected.size === selectableCount
                     }
                     onChange={toggleAll}
                   />

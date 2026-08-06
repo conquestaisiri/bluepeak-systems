@@ -7,5 +7,6 @@ export interface Env {
   ADMIN_EMAIL: string;
   ADMIN_PASSWORD: string;
   FRONTEND_URL: string;
+  TURNSTILE_SECRET_KEY?: string;
   R2_BUCKET: R2Bucket;
 }

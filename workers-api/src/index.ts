@@ -31,15 +31,39 @@ app.use("*", async (c, next) => {
 
 // Middleware
 app.use("*", logger());
-app.use("*", cors());
+
+function getCorsOrigin(): string {
+  try {
+    return getEnv().FRONTEND_URL;
+  } catch {
+    return "https://bluepeak.payservice.top";
+  }
+}
+
+const corsOptions = {
+  origin: (origin: string | undefined) => {
+    if (!origin) return "*";
+    const allowed: string[] = [getCorsOrigin()];
+    if (allowed.includes(origin)) return origin;
+    return "";
+  },
+  allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization"],
+};
+app.use("*", cors(corsOptions));
 
 // Rate limiting (simple in-memory for Workers)
 const rateLimits = new Map<string, { count: number; reset: number }>();
 
-function rateLimit(max: number, windowMs: number, message: string) {
+function rateLimit(
+  max: number,
+  windowMs: number,
+  message: string,
+  keyFor?: (c: any) => string,
+) {
   return async (c: any, next: any) => {
     const ip = c.req.header("cf-connecting-ip") || "unknown";
-    const key = `${c.req.path}:${ip}`;
+    const key = keyFor ? keyFor(c) : `${c.req.path}:${ip}`;
     const now = Date.now();
     const limit = rateLimits.get(key);
 
@@ -55,6 +79,59 @@ function rateLimit(max: number, windowMs: number, message: string) {
     limit.count++;
     return next();
   };
+}
+
+// Inline per-key check (e.g. per-email) once the request body has been parsed.
+function checkRateLimit(
+  key: string,
+  max: number,
+  windowMs: number,
+  message: string,
+): boolean {
+  const now = Date.now();
+  const limit = rateLimits.get(key);
+  if (!limit || now > limit.reset) {
+    rateLimits.set(key, { count: 1, reset: now + windowMs });
+    return true;
+  }
+  if (limit.count >= max) {
+    return false;
+  }
+  limit.count++;
+  return true;
+}
+
+// Cloudflare Turnstile verification. Returns true when either no secret is
+// configured (verification disabled) or the provided token passes siteverify.
+// When a secret IS configured, a missing/invalid token is rejected.
+async function verifyTurnstile(
+  token: string | undefined,
+  c: any,
+): Promise<boolean> {
+  const secret = getEnv().TURNSTILE_SECRET_KEY;
+  if (!secret) {
+    return true;
+  }
+  if (!token) {
+    return false;
+  }
+  const ip = c.req.header("cf-connecting-ip") || "";
+  const body = new URLSearchParams({
+    secret,
+    response: token,
+    remoteip: ip,
+  });
+  try {
+    const res = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      { method: "POST", body },
+    );
+    const data: { success?: boolean } = await res.json();
+    return data.success === true;
+  } catch (err) {
+    console.error({ err }, "Turnstile verification failed");
+    return false;
+  }
 }
 
 const apiLimiter = rateLimit(
@@ -76,6 +153,16 @@ const magicLinkLimiter = rateLimit(
   5,
   15 * 60 * 1000,
   "Too many sign-in attempts, please try again later",
+);
+const adminLoginLimiter = rateLimit(
+  10,
+  15 * 60 * 1000,
+  "Too many login attempts, please try again later",
+);
+const referralClickLimiter = rateLimit(
+  20,
+  15 * 60 * 1000,
+  "Too many requests, please try again later",
 );
 
 app.use("/api/*", apiLimiter);
@@ -255,9 +342,12 @@ app.post("/api/contact", async (c) => {
 // ============================================
 // CANDIDATE AUTH (Magic Link)
 // ============================================
-const magicLinkSchema = z.object({ email: z.string().email() });
+const magicLinkSchema = z.object({
+  email: z.string().email(),
+  turnstileToken: z.string().optional(),
+});
 
-app.post("/api/auth/magic-link", async (c) => {
+app.post("/api/auth/magic-link", magicLinkLimiter, async (c) => {
   try {
     const parsed = magicLinkSchema.safeParse(await c.req.json());
     if (!parsed.success) {
@@ -265,6 +355,27 @@ app.post("/api/auth/magic-link", async (c) => {
     }
 
     const normalized = parsed.data.email.toLowerCase().trim();
+
+    const ok = checkRateLimit(
+      `magiclink:email:${normalized}`,
+      3,
+      60 * 60 * 1000,
+      "Too many sign-in attempts for this email, please try again later",
+    );
+    if (!ok) {
+      return c.json(
+        {
+          error:
+            "Too many sign-in attempts for this email, please try again later",
+        },
+        429,
+      );
+    }
+
+    const captchaOk = await verifyTurnstile(parsed.data.turnstileToken, c);
+    if (!captchaOk) {
+      return c.json({ error: "Security check failed, please try again" }, 400);
+    }
 
     const token = await authService.generateMagicToken(normalized);
     const linkUrl = authService.buildMagicLinkUrl(token);
@@ -296,11 +407,51 @@ app.get("/api/auth/verify", async (c) => {
 
     const sessionToken = await authService.generateSessionToken(email);
     console.log({ email }, "Magic link verified, session issued");
+
+    // Set the session as an HttpOnly cookie as well, so browsers that send it
+    // transparently are authenticated without relying on localStorage storage.
+    c.header(
+      "Set-Cookie",
+      `bluepeak_session=${encodeURIComponent(
+        sessionToken,
+      )}; Path=/; HttpOnly; Secure; SameSite=Lax`,
+    );
+
     return c.json({ token: sessionToken, email });
   } catch (err) {
     console.error({ err }, "Failed to verify magic link");
     return c.json({ error: "Invalid or expired token" }, 401);
   }
+});
+
+// Logout for candidates: revokes the server-side session and clears the
+// HttpOnly cookie. Safe to call even when unauthenticated.
+app.post("/api/auth/logout", async (c) => {
+  const cookie = c.req.header("Cookie");
+  const match = cookie?.match(/(?:^|;\s*)bluepeak_session=([^;]+)/);
+  let token: string | null = null;
+  if (match) {
+    token = decodeURIComponent(match[1]);
+  } else {
+    const authHeader = c.req.header("Authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      token = authHeader.slice(7);
+    }
+  }
+
+  if (token) {
+    try {
+      await authService.revokeSession(token);
+    } catch (err) {
+      console.error({ err }, "Failed to revoke session on logout");
+    }
+  }
+
+  c.header(
+    "Set-Cookie",
+    "bluepeak_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0",
+  );
+  return c.json({ success: true });
 });
 
 // ============================================
@@ -309,13 +460,19 @@ app.get("/api/auth/verify", async (c) => {
 const adminLoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+  turnstileToken: z.string().optional(),
 });
 
-app.post("/api/admin/login", async (c) => {
+app.post("/api/admin/login", adminLoginLimiter, async (c) => {
   try {
     const parsed = adminLoginSchema.safeParse(await c.req.json());
     if (!parsed.success) {
       return c.json({ error: "Email and password are required" }, 400);
+    }
+
+    const captchaOk = await verifyTurnstile(parsed.data.turnstileToken, c);
+    if (!captchaOk) {
+      return c.json({ error: "Security check failed, please try again" }, 400);
     }
 
     const { ADMIN_EMAIL, ADMIN_PASSWORD, JWT_SECRET } = getEnv();
@@ -335,7 +492,7 @@ app.post("/api/admin/login", async (c) => {
     const token = await new SignJWT({ email: ADMIN_EMAIL, role: "admin" })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
-      .setExpirationTime("7d")
+      .setExpirationTime("1d")
       .sign(new TextEncoder().encode(JWT_SECRET));
 
     return c.json({ token, user: { email: ADMIN_EMAIL, role: "admin" } });
@@ -387,11 +544,20 @@ const adminAuth = async (c: any, next: any) => {
 // Candidate auth middleware
 const candidateAuth = async (c: any, next: any) => {
   const authHeader = c.req.header("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return c.json({ error: "Missing or invalid authorization header" }, 401);
+  let token: string | null = null;
+  if (authHeader?.startsWith("Bearer ")) {
+    token = authHeader.slice(7);
+  } else {
+    const cookie = c.req.header("Cookie");
+    const match = cookie?.match(/(?:^|;\s*)bluepeak_session=([^;]+)/);
+    if (match) {
+      token = decodeURIComponent(match[1]);
+    }
   }
 
-  const token = authHeader.slice(7);
+  if (!token) {
+    return c.json({ error: "Missing or invalid authorization header" }, 401);
+  }
 
   const validation = await authService.validateSessionToken(token);
   if (!validation) {
@@ -765,25 +931,22 @@ app.get("/api/referrals/:code", async (c) => {
   }
 });
 
-// Record that a referral clicked "continue" (public). The device type is sent
-// by the frontend; mobile is blocked client-side, but we still notify admin.
-const clickSchema = z.object({
-  device: z.string().optional(),
-});
+// Record that a referral clicked "continue" (public). The device type is
+// derived server-side from the User-Agent header rather than trusted from the
+// client body, and it is rate-limited per IP to prevent click/metadata fraud.
+function detectDeviceType(userAgent: string): "mobile" | "laptop" {
+  const ua = (userAgent || "").toLowerCase();
+  const mobile =
+    /mobile|iphone|ipad|android|ios|windows phone|blackberry|opera mini|ucbrowser/i.test(
+      ua,
+    );
+  return mobile ? "mobile" : "laptop";
+}
 
-app.post("/api/referrals/:code/click", async (c) => {
+app.post("/api/referrals/:code/click", referralClickLimiter, async (c) => {
   try {
     await ensureReferralSchemaOnce();
-    let device = "laptop";
-    try {
-      const body = await c.req.json();
-      const parsed = clickSchema.safeParse(body);
-      if (parsed.success && parsed.data.device) {
-        device = parsed.data.device === "mobile" ? "mobile" : "laptop";
-      }
-    } catch {
-      // ignore malformed body
-    }
+    const device = detectDeviceType(c.req.header("user-agent") || "");
 
     const referral = await referralService.recordClick(
       c.req.param("code"),

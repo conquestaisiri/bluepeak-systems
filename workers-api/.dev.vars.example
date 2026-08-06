@@ -1,0 +1,21 @@
+# Copy to .dev.vars and fill in with your real values for local dev.
+# This file is committed as documentation only. Never commit .dev.vars.
+#
+# For production, set these same secrets either via:
+#   wrangler secret put <KEY>
+# or the Cloudflare dashboard -> Worker -> Settings -> Variables and Secrets.
+#
+# DATABASE_URL                 Postgres connection string (e.g. Neon/postgres)
+DATABASE_URL=postgres://user:pass@host/db
+# RESEND_API_KEY               Email provider (Resend) API key
+RESEND_API_KEY=
+# EMAIL_FROM                   Verified sender, e.g. "BluePeak HR <no-reply@bluepeak.payservice.top>"
+EMAIL_FROM=
+# HR_EMAIL                     Where HR/notification emails are sent
+HR_EMAIL=
+# JWT_SECRET                   >= 32 chars, random. Signs admin &candidate tokens.
+JWT_SECRET=
+# ADMIN_EMAIL               Admin login email
+ADMIN_EMAIL=
+# ADMIN_PASSWORD            Admin login password
+ADMIN_PASSWORD=

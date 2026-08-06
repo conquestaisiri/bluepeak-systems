@@ -76,17 +76,48 @@ async function sendEmail(opts: {
   if (!from) {
     throw new Error("EMAIL_FROM must be set");
   }
-  const { data, error } = await getResend().emails.send({ ...opts, from });
-  if (error) {
-    console.error(
-      { error, to: opts.to, subject: opts.subject, name: error.name },
-      "Failed to send email",
-    );
-    throw new Error(`${error.name}: ${error.message}`);
+  const maxAttempts = 3;
+  let lastError: Error | null = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const { data, error } = await getResend().emails.send({ ...opts, from });
+      if (error) {
+        lastError = new Error(`${error.name}: ${error.message}`);
+        console.warn(
+          { error, to: opts.to, subject: opts.subject, attempt },
+          "Email send attempt failed",
+        );
+      } else {
+        console.log(
+          { id: data?.id, to: opts.to, subject: opts.subject },
+          "Email sent",
+        );
+        return;
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.warn(
+        {
+          to: opts.to,
+          subject: opts.subject,
+          attempt,
+          error: lastError.message,
+        },
+        "Email send threw (retrying)",
+      );
+    }
+    if (attempt < maxAttempts) {
+      // Exponential backoff: 500ms, 1000ms before the last retry.
+      await new Promise((resolve) =>
+        setTimeout(resolve, 500 * 2 ** (attempt - 1)),
+      );
+    }
   }
-  console.log(
-    { id: data?.id, to: opts.to, subject: opts.subject },
-    "Email sent",
+  throw (
+    lastError ??
+    new Error(
+      `Failed to send email to ${opts.to} after ${maxAttempts} attempts`,
+    )
   );
 }
 

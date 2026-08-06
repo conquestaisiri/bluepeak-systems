@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useLocation, Link } from 'wouter';
+import { useEffect, useState } from "react";
+import { useLocation, Link } from "wouter";
 import {
   ArrowUp,
   ArrowUpRight,
@@ -7,14 +7,14 @@ import {
   Linkedin,
   Menu,
   X,
-} from 'lucide-react';
+} from "lucide-react";
 
 const NAV_ITEMS = [
-  ['About', '/#about'],
-  ['Solutions', '/#solutions'],
-  ['How it works', '/#process'],
-  ['Careers', '/careers'],
-  ['Contact', '/#contact'],
+  ["About", "/#about"],
+  ["Solutions", "/#work"],
+  ["How it works", "/#process"],
+  ["Careers", "/careers"],
+  ["Contact", "/#contact"],
 ] as const;
 
 interface SiteLayoutProps {
@@ -29,25 +29,36 @@ export function SiteLayout({ children, title, description }: SiteLayoutProps) {
   const [location] = useLocation();
 
   useEffect(() => {
-    document.title = title ?? 'BluePeak Systems | The people behind your next peak';
-    const desc = description ?? 'BluePeak Systems helps ambitious businesses build exceptional remote teams—and helps skilled professionals find legitimate global careers.';
+    document.title =
+      title ??
+      "BluePeak Systems | Talent for any role — remote, hybrid, or on-site";
+    const desc =
+      description ??
+      "BluePeak finds, vets, and manages high-quality people for growing organizations — remote, hybrid, on-site, and hands-on field roles across any department. Browse open positions or tell us what you need.";
     let meta = document.querySelector('meta[name="description"]');
-    if (!meta) { meta = document.createElement('meta'); meta.setAttribute('name', 'description'); document.head.appendChild(meta); }
-    meta.setAttribute('content', desc);
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "description");
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute("content", desc);
   }, [title, description]);
 
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 480);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
     const reveal = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && e.target.classList.add('is-visible')),
-      { threshold: 0.1 }
+      (entries) =>
+        entries.forEach(
+          (e) => e.isIntersecting && e.target.classList.add("is-visible"),
+        ),
+      { threshold: 0.1 },
     );
-    document.querySelectorAll('.reveal').forEach((el) => reveal.observe(el));
+    document.querySelectorAll(".reveal").forEach((el) => reveal.observe(el));
     return () => reveal.disconnect();
   }, [location]);
 
@@ -61,8 +72,11 @@ export function SiteLayout({ children, title, description }: SiteLayoutProps) {
       <header className="nav-wrap">
         <nav className="container nav-bar" aria-label="Main navigation">
           <Link href="/" className="brand" data-testid="button-brand">
-            <span className="brand-mark"><span /></span>
-            <span>bluepeak<span className="brand-dot">.</span></span>
+            <img
+              src="/bluepeak-mark.svg"
+              alt="BluePeak Systems"
+              className="brand-logo"
+            />
           </Link>
 
           <div className="desktop-nav">
@@ -70,7 +84,12 @@ export function SiteLayout({ children, title, description }: SiteLayoutProps) {
               <a
                 key={href}
                 href={href}
-                className={location === href || (href === '/careers' && location.startsWith('/careers')) ? 'nav-active' : ''}
+                className={
+                  location === href ||
+                  (href === "/careers" && location.startsWith("/careers"))
+                    ? "nav-active"
+                    : ""
+                }
                 onClick={() => setMobileOpen(false)}
               >
                 {label}
@@ -79,10 +98,18 @@ export function SiteLayout({ children, title, description }: SiteLayoutProps) {
           </div>
 
           <div className="nav-actions">
-            <a className="nav-login" href="/careers" data-testid="link-professionals">
+            <a
+              className="nav-login"
+              href="/careers"
+              data-testid="link-professionals"
+            >
               For professionals <ArrowUpRight size={14} />
             </a>
-            <a className="button button-dark button-small" href="/#contact" data-testid="link-start-conversation">
+            <a
+              className="button button-dark button-small"
+              href="/#contact"
+              data-testid="link-start-conversation"
+            >
               Start a conversation <ArrowUpRight size={15} />
             </a>
           </div>
@@ -90,7 +117,7 @@ export function SiteLayout({ children, title, description }: SiteLayoutProps) {
           <button
             className="mobile-menu"
             onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
+            aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
           >
             {mobileOpen ? <X /> : <Menu />}
           </button>
@@ -100,47 +127,65 @@ export function SiteLayout({ children, title, description }: SiteLayoutProps) {
           <div className="mobile-nav container">
             {NAV_ITEMS.map(([label, href]) => (
               <a key={href} href={href} onClick={() => setMobileOpen(false)}>
-                {label}<ChevronRight size={17} />
+                {label}
+                <ChevronRight size={17} />
               </a>
             ))}
-            <a href="/#contact" className="button button-blue" onClick={() => setMobileOpen(false)}>
+            <a
+              href="/#contact"
+              className="button button-blue"
+              onClick={() => setMobileOpen(false)}
+            >
               Start a conversation <ArrowUpRight size={16} />
             </a>
           </div>
         )}
       </header>
 
-      <main style={{ paddingTop: '78px' }}>
-        {children}
-      </main>
+      <main style={{ paddingTop: "64px" }}>{children}</main>
 
       <footer className="footer">
         <div className="container footer-top">
-          <Link href="/" className="brand footer-brand" data-testid="button-footer-brand">
-            <span className="brand-mark"><span /></span>
-            <span>bluepeak<span className="brand-dot">.</span></span>
+          <Link
+            href="/"
+            className="brand footer-brand"
+            data-testid="button-footer-brand"
+          >
+            <img
+              src="/bluepeak-mark.svg"
+              alt="BluePeak Systems"
+              className="brand-logo"
+            />
           </Link>
-          <p>Global talent. Human connection.<br />A higher standard of work.</p>
+          <p>Workforce solutions and hiring—handled for you, for any role.</p>
           <div className="footer-links">
             <a href="/#about">About</a>
-            <a href="/#solutions">Solutions</a>
+            <a href="/#work">What we do</a>
             <a href="/careers">Careers</a>
             <a href="/#contact">Contact</a>
           </div>
-          <a href="https://www.linkedin.com" target="_blank" rel="noreferrer" className="social-link" aria-label="BluePeak on LinkedIn">
+          <a
+            href="https://www.linkedin.com"
+            target="_blank"
+            rel="noreferrer"
+            className="social-link"
+            aria-label="BluePeak on LinkedIn"
+          >
             <Linkedin size={17} />
           </a>
         </div>
         <div className="container footer-bottom">
-          <span>© {new Date().getFullYear()} BluePeak Systems. All rights reserved.</span>
-          <span>Built for the way work moves.</span>
+          <span>
+            © {new Date().getFullYear()} BluePeak Systems. All rights reserved.
+          </span>
+          <span>Building workforces in 28+ countries.</span>
         </div>
       </footer>
 
       {showTop && (
         <button
           className="back-top"
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           aria-label="Back to top"
         >
           <ArrowUp size={18} />

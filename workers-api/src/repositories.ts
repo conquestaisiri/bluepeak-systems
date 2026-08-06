@@ -13,6 +13,7 @@ import {
   eq,
   and,
   or,
+  ne,
   gt,
   gte,
   lt,
@@ -496,12 +497,14 @@ export const referralRepository = {
     return result;
   },
 
-  async markSent(id: string, sentAt: Date): Promise<void> {
+  async markSent(id: string, sentAt: Date): Promise<boolean> {
     const db = getDb();
-    await db
+    const [result] = await db
       .update(referrals)
       .set({ status: "Sent", emailSentAt: sentAt, updatedAt: new Date() })
-      .where(eq(referrals.id, id));
+      .where(and(eq(referrals.id, id), ne(referrals.status, "Sent")))
+      .returning({ id: referrals.id });
+    return !!result;
   },
 
   async recordClick(
@@ -596,61 +599,50 @@ export const referralRepository = {
   ): Promise<void> {
     const db = getDb();
     if (ids.length === 0) return;
-    const rows = await db
-      .select({
-        id: referrals.id,
-        contentOverrides: referrals.contentOverrides,
+    await db
+      .update(referrals)
+      .set({
+        contentOverrides: sql`coalesce(${referrals.contentOverrides}, '{}'::jsonb) || ${JSON.stringify(
+          entries,
+        )}::jsonb`,
+        updatedAt: new Date(),
       })
-      .from(referrals)
       .where(inArray(referrals.id, ids));
-    for (const row of rows) {
-      const merged = { ...(row.contentOverrides ?? {}), ...entries };
-      await db
-        .update(referrals)
-        .set({ contentOverrides: merged, updatedAt: new Date() })
-        .where(eq(referrals.id, row.id));
-    }
   },
 
   async setContentOverridesAll(entries: Record<string, string>): Promise<void> {
     const db = getDb();
-    const rows = await db
-      .select({
-        id: referrals.id,
-        contentOverrides: referrals.contentOverrides,
-      })
-      .from(referrals);
-    for (const row of rows) {
-      const merged = { ...(row.contentOverrides ?? {}), ...entries };
-      await db
-        .update(referrals)
-        .set({ contentOverrides: merged, updatedAt: new Date() })
-        .where(eq(referrals.id, row.id));
-    }
+    // Single UPDATE that layers the overrides onto existing rows via JSONB
+    // merge, avoiding one DB round-trip per row.
+    await db.update(referrals).set({
+      contentOverrides: sql`coalesce(${referrals.contentOverrides}, '{}'::jsonb) || ${JSON.stringify(
+        entries,
+      )}::jsonb`,
+      updatedAt: new Date(),
+    });
   },
 
   async clearContentOverrides(ids: string[], keys?: string[]): Promise<void> {
     const db = getDb();
     if (ids.length === 0) return;
-    const rows = await db
-      .select({
-        id: referrals.id,
-        contentOverrides: referrals.contentOverrides,
-      })
-      .from(referrals)
-      .where(inArray(referrals.id, ids));
-    for (const row of rows) {
-      let next = { ...(row.contentOverrides ?? {}) };
-      if (keys) {
-        for (const k of keys) delete next[k];
-      } else {
-        next = {};
-      }
+    if (!keys) {
       await db
         .update(referrals)
-        .set({ contentOverrides: next, updatedAt: new Date() })
-        .where(eq(referrals.id, row.id));
+        .set({ contentOverrides: sql`'{}'::jsonb`, updatedAt: new Date() })
+        .where(inArray(referrals.id, ids));
+      return;
     }
+    // Remove only the specified keys using JSONB deletion for each key.
+    const jsonKeys = keys.map((k) => `'${k.replace(/'/g, "''")}'`).join(", ");
+    await db
+      .update(referrals)
+      .set({
+        contentOverrides: sql`${referrals.contentOverrides} - ARRAY[${sql.raw(
+          jsonKeys,
+        )}]::text[]`,
+        updatedAt: new Date(),
+      })
+      .where(inArray(referrals.id, ids));
   },
 
   async getSettings(): Promise<ReferralSettingsRow> {

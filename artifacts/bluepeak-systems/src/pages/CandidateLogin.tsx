@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
-import { Mail, Loader2, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
+import { Mail, Loader2, ArrowLeft, ArrowUpRight, CheckCircle, AlertCircle } from 'lucide-react';
 import { SiteLayout } from '@/components/site/SiteLayout';
 
 export function CandidateLogin() {
@@ -45,10 +45,7 @@ export function CandidateLogin() {
             <Link href="/" className="auth-back" onClick={(e) => { e.preventDefault(); window.history.back(); }}>
               <ArrowLeft size={18} /> Back
             </Link>
-            <div className="auth-brand">
-              <span className="brand-mark"><span /></span>
-              <span>bluepeak<span className="brand-dot">.</span></span>
-            </div>
+            <div className="auth-brand"><img src="/bluepeak-mark.svg" alt="BluePeak Systems" className="candidate-logo" /></div>
             <h1>Sign in to your candidate portal</h1>
             <p>Enter your email address and we&apos;ll send you a secure sign-in link.</p>
           </div>
@@ -96,7 +93,9 @@ export function CandidateLogin() {
                     Sending…
                   </>
                 ) : (
-                  'Send magic link <ArrowLeft size={16} />'
+                  <>
+                    Send magic link <ArrowUpRight size={16} />
+                  </>
                 )}
               </button>
 

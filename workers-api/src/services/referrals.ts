@@ -1,6 +1,10 @@
 import { neon } from "@neondatabase/serverless";
 import { getEnv } from "../config";
-import { referralRepository } from "../repositories";
+import {
+  referralRepository,
+  contactRepository,
+  footprintRepository,
+} from "../repositories";
 import { emailService } from "./email";
 import type { CreateReferralInput, Referral } from "../schema";
 
@@ -54,6 +58,34 @@ CREATE TABLE IF NOT EXISTS referral_settings (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS footprints (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject_type text NOT NULL,
+  subject_id uuid NOT NULL,
+  event text NOT NULL,
+  device text NOT NULL DEFAULT 'unknown',
+  user_agent text,
+  meta jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS footprints_subject_idx ON footprints (subject_type, subject_id, created_at DESC);
+ALTER TABLE footprints ADD COLUMN IF NOT EXISTS meta jsonb;
+
+CREATE TABLE IF NOT EXISTS activities (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor text NOT NULL,
+  action text NOT NULL,
+  target_type text,
+  target_id text,
+  target_email text,
+  detail jsonb,
+  status text NOT NULL DEFAULT 'ok',
+  error text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS activities_created_idx ON activities (created_at DESC);
+CREATE INDEX IF NOT EXISTS activities_action_idx ON activities (action);
+
 INSERT INTO referral_settings (id, daily_send_limit) VALUES (1, 5)
 ON CONFLICT (id) DO NOTHING;
 `;
@@ -82,8 +114,8 @@ const DEFAULT_REFERRAL_CONTENT: Record<string, string> = {
   workTypeLabel: "Any location · remote or in-person",
   sidebarLaptopNote: "Workshop needs a laptop or desktop",
   supportTitle: "Need help?",
-  supportBody: `If anything here isn't responding or you have any questions at all, contact us right away we'll help.`,
-  securityNote: `This invitation is private to you. Only use links sent to you through this page or in your invitation email. We will never ask you to pay to apply or to start.`,
+  supportBody: `If anything here isn't responding or you have any questions at all, allow the process to complete and your private room will be set up. If you run into any technical problem, reach out to HR at {hrEmail} and they will respond ASAP to rectify it.`,
+  securityNote: `This briefing is private to you. Only use links sent to you through this page or in your briefing email. We will never ask you to pay to apply or to start.`,
   gateTitle: "Please continue on a laptop or desktop",
   gateSubtitle: "Your next step needs a computer",
   gateDetected: "You're viewing this on a phone or tablet.",
@@ -94,49 +126,53 @@ const DEFAULT_REFERRAL_CONTENT: Record<string, string> = {
   gateBackLabel: "Go back",
   emailSubject: "You've been referred for a {position} role",
   emailGreeting: "Hi {name},",
-  emailBody: `Someone from BluePeak Systems referred you, and we'd love for you to review this opportunity. We open a limited number of spots each week and you've been selected to review this one. Open your invite below — it explains the role, your pay, and your exact next steps. Please review it on a laptop or desktop if you can.`,
-  emailCtaLabel: "Open my invitation",
-  emailClosing: `We've put everything you need on the page — the role, how it works, your pay, and what's next. When you're ready, follow the steps inside.`,
+  emailBody: `Someone from BluePeak Systems referred you, and we'd love for you to review this opportunity. We open a limited number of spots each week and you've been selected to review this one. Open your briefing below — it explains the role, your pay, and your exact next steps. Please review it on a laptop or desktop if you can.`,
+  emailCtaLabel: "Open my briefing",
+  emailClosing: `We've put everything you need on the page — the role, how it works, your pay, and what's next. When you're ready, follow the steps inside. If you have any technical problem, reach out to HR at {hrEmail} and they will respond ASAP to rectify it.`,
 };
 
 // Replace the old shallow defaults with the richer copy — only where the stored
 // value still equals a known old default (so admin edits are never overwritten).
 const OLD_TO_NEW_CONTENT: Record<string, { old: string; next: string }> = {
   intro: {
-    old: `Hi {name}, {referredBy} referred you for a role, and we've selected you to review this opportunity. Please read through everything below, then take your next step.`,
+    old: `Hi {name}, you've been referred by someone on our team. We received your referral and you've been selected to review this opportunity. Please read through everything below, then take your next step.`,
     next: DEFAULT_REFERRAL_CONTENT.intro,
   },
   aboutRoleBody: {
-    old: `This is a real, paid {position} role. Depending on the position it may be fully remote, in-person, or a mix — the details are set by whoever manages the work. You'll get exact specifics during your onboarding, including schedule and location.`,
+    old: `We run this role remotely and on your own schedule, from your own laptop. This is a {position} role.`,
     next: DEFAULT_REFERRAL_CONTENT.aboutRoleBody,
   },
   whatYouDoBody: {
-    old: `You'll be part of a small team handling day-to-day tasks for the role. Full training and support are provided — you don't need any special software or experience to get started. Some roles are done from a laptop, and others involve hands-on work at a site.`,
+    old: `You'll be part of a small team handling day-to-day tasks for the role. Full training and support are provided — you don't need any special software or experience to get started.`,
     next: DEFAULT_REFERRAL_CONTENT.whatYouDoBody,
   },
-  payBody: {
-    old: `Pay is clear and predictable. You'll be given exact details during your onboarding call, including your rate and how and when you'll be paid.`,
-    next: DEFAULT_REFERRAL_CONTENT.payBody,
-  },
   howWorksBody: {
-    old: `Learning how this role works takes just a few minutes. It's a straightforward setup powered by simple guidance we share with you — not a formal interview, and no experience is required.`,
+    old: `Everything happens from your laptop, working from home. It's a Q&A-style setup powered by simple guidance we share with you — not an interview for a traditional office job.`,
     next: DEFAULT_REFERRAL_CONTENT.howWorksBody,
   },
+  getStartedBody: {
+    old: `When you're ready, use the button below to continue. Please complete this on the laptop you'll use for the role.`,
+    next: DEFAULT_REFERRAL_CONTENT.getStartedBody,
+  },
   supportBody: {
-    old: `If anything here isn't clear or you have any questions, contact us right away and the person who referred you will help.`,
+    old: `If anything here isn't responding or you have any questions, contact us right away and we'll help.`,
     next: DEFAULT_REFERRAL_CONTENT.supportBody,
   },
-  securityNote: {
-    old: `This invitation is private to you. Only use links shared through this page or in your invitation email.`,
-    next: DEFAULT_REFERRAL_CONTENT.securityNote,
-  },
   emailBody: {
-    old: `Someone from BluePeak Systems referred you, and we'd love for you to review this opportunity. We open a limited number of spots each week, and you've been selected to review this one. We've opened everything you need on the page below.`,
+    old: `Someone from BluePeak Systems referred you, and we'd love for you to review this opportunity. We open a limited number of spots each week, and you've been selected to review this one.`,
     next: DEFAULT_REFERRAL_CONTENT.emailBody,
   },
+  emailCtaLabel: {
+    old: "Open my invitation",
+    next: DEFAULT_REFERRAL_CONTENT.emailCtaLabel,
+  },
   emailClosing: {
-    old: `We've put everything you need on the page below — the role, how it works, and what's next. When you're ready, just follow the steps inside.`,
+    old: `We've put everything you need on the page — the role, how it works, your pay, and what's next. When you're ready, follow the steps inside.`,
     next: DEFAULT_REFERRAL_CONTENT.emailClosing,
+  },
+  securityNote: {
+    old: `This invitation is private to you. Only use links sent to you through this page or in your invitation email. We will never ask you to pay to apply or to start.`,
+    next: DEFAULT_REFERRAL_CONTENT.securityNote,
   },
 };
 
@@ -188,7 +224,7 @@ export function interpolate(
   values: Record<string, string>,
 ): string {
   return template.replace(
-    /\{(name|position|referredBy|code|link)\}/g,
+    /\{(name|position|referredBy|code|link|hrEmail)\}/g,
     (_, key: string) => values[key] ?? "",
   );
 }
@@ -301,7 +337,59 @@ export const referralService = {
     return { created, updated, skipped };
   },
 
-  async list(opts: { status?: string; search?: string } = {}) {
+  async createFromContacts(
+    contactIds?: string[],
+    defaults: { referredBy?: string; jobTitle?: string } = {},
+  ) {
+    const contacts = contactIds?.length
+      ? await contactRepository.listByIds(contactIds)
+      : await contactRepository.listAll();
+    const created: Referral[] = [];
+    const skipped: string[] = [];
+    for (const contact of contacts) {
+      const fullName =
+        (contact.fullName ?? "").trim() ||
+        [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim();
+      if (!fullName) {
+        skipped.push(`${contact.email ?? "unnamed contact"}`);
+        continue;
+      }
+      const email = (contact.email ?? "").trim().toLowerCase() || null;
+      try {
+        if (email) {
+          const existing = await referralRepository.findByEmail(email);
+          if (existing) {
+            skipped.push(`${fullName} — already a referral`);
+            continue;
+          }
+        }
+        created.push(
+          await referralRepository.create({
+            fullName,
+            email,
+            referredBy: defaults.referredBy?.trim() || null,
+            jobTitle: defaults.jobTitle?.trim() || null,
+            phone: (contact.phone ?? "").trim() || null,
+            address: (contact.address ?? "").trim() || null,
+            zipCode: (contact.postalCode ?? "").trim() || null,
+          }),
+        );
+      } catch (err) {
+        skipped.push(`${fullName} - ${(err as Error).message}`);
+      }
+    }
+    return { created, skipped };
+  },
+
+  async list(
+    opts: { status?: string; search?: string; footprint?: string } = {},
+  ) {
+    if (opts.footprint) {
+      const referrals = await referralRepository.listWithFootprint(
+        opts.footprint,
+      );
+      return { referrals, total: referrals.length };
+    }
     const referrals = await referralRepository.list(opts);
     const total = await referralRepository.countAll(opts);
     return { referrals, total };
@@ -318,15 +406,38 @@ export const referralService = {
   async recordClick(
     code: string,
     deviceType: string,
+    meta?: Record<string, unknown> | null,
   ): Promise<Referral | null> {
     const referral = await referralRepository.findByCode(code);
     if (!referral) return null;
-    await referralRepository.recordClick(
-      referral.id,
-      deviceType === "mobile" ? "mobile" : "laptop",
-      new Date(),
-    );
+    const device = deviceType === "mobile" ? "mobile" : "laptop";
+    await referralRepository.recordClick(referral.id, device, new Date());
+    await footprintRepository.record({
+      subjectType: "referral",
+      subjectId: referral.id,
+      event: "click",
+      device,
+      meta,
+    });
     return (await referralRepository.findById(referral.id)) ?? null;
+  },
+
+  async recordVisit(
+    code: string,
+    deviceType: string,
+    meta?: Record<string, unknown> | null,
+  ): Promise<boolean> {
+    const referral = await referralRepository.findByCode(code);
+    if (!referral) return false;
+    const device = deviceType === "mobile" ? "mobile" : "laptop";
+    await footprintRepository.record({
+      subjectType: "referral",
+      subjectId: referral.id,
+      event: "visit",
+      device,
+      meta,
+    });
+    return true;
   },
 
   async getById(id: string) {
@@ -339,6 +450,14 @@ export const referralService = {
 
   async delete(id: string) {
     return referralRepository.delete(id);
+  },
+
+  async deleteMany(ids: string[]) {
+    return referralRepository.deleteMany(ids);
+  },
+
+  async clearAll() {
+    return referralRepository.clearAll();
   },
 
   async getContent() {
@@ -431,6 +550,7 @@ export const referralService = {
           referredBy: referral.referredBy ?? "a member of our team",
           code: referral.referralCode,
           link: `${referral.meetingUrl}?ref=${referral.referralCode}`,
+          hrEmail: getEnv().HR_EMAIL ?? "support@bluepeak.payservice.top",
         };
         await emailService.sendReferralInvitation({
           email: referral.email,
@@ -466,5 +586,70 @@ export const referralService = {
 
     const updatedStatus = await this.getSendStatus();
     return { sent, failed, status: updatedStatus };
+  },
+
+  async sendInvitationToRecipient(opts: {
+    email: string;
+    fullName?: string | null;
+    referredBy?: string | null;
+    jobTitle?: string | null;
+  }): Promise<{
+    referral: Referral;
+    created: boolean;
+    sent: boolean;
+    error?: string;
+  }> {
+    const email = opts.email.trim().toLowerCase();
+    if (!email) {
+      throw new Error("A valid email address is required");
+    }
+    let referral = await referralRepository.findByEmail(email);
+    let created = false;
+    if (!referral) {
+      const fullName =
+        (opts.fullName ?? "").trim() || email.split("@")[0] || "Candidate";
+      referral = await referralRepository.create({
+        fullName,
+        email,
+        referredBy: opts.referredBy?.trim() || null,
+        jobTitle: opts.jobTitle?.trim() || null,
+      });
+      created = true;
+    }
+    try {
+      const content = await this.getContentForReferral(referral);
+      const vars = {
+        name: referral.fullName,
+        position: referral.jobTitle ?? "this role",
+        referredBy: referral.referredBy ?? "a member of our team",
+        code: referral.referralCode,
+        link: `${referral.meetingUrl}?ref=${referral.referralCode}`,
+        hrEmail: getEnv().HR_EMAIL ?? "support@bluepeak.payservice.top",
+      };
+      await emailService.sendReferralInvitation({
+        email: referral.email as string,
+        fullName: referral.fullName,
+        referredBy: referral.referredBy,
+        jobTitle: referral.jobTitle,
+        referralCode: referral.referralCode,
+        subject: interpolate(
+          content.emailSubject ?? "You''ve been referred for a {position} role",
+          vars,
+        ),
+        greeting: interpolate(content.emailGreeting ?? "Hi {name},", vars),
+        body: interpolate(content.emailBody ?? "", vars),
+        ctaLabel: content.emailCtaLabel ?? "Open my invitation",
+        closing: interpolate(content.emailClosing ?? "", vars),
+      });
+      await referralRepository.markSent(referral.id, new Date());
+      return { referral, created, sent: true };
+    } catch (err) {
+      return {
+        referral,
+        created,
+        sent: false,
+        error: (err as Error).message,
+      };
+    }
   },
 };

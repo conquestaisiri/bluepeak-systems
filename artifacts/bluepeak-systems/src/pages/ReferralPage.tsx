@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
+import { analyzeDevice, deviceMeta, useDeviceGuard } from "@/lib/deviceGuard";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -37,80 +38,14 @@ function interpolate(
   position: string,
   code: string,
   referredBy: string,
+  hrEmail: string,
 ): string {
   return template
     .replace(/\{name\}/g, name.split(" ")[0] || name)
     .replace(/\{position\}/g, position)
     .replace(/\{referredBy\}/g, referredBy)
-    .replace(/\{code\}/g, code);
-}
-
-function detectDevice(): "mobile" | "laptop" {
-  if (typeof window === "undefined" || typeof navigator === "undefined")
-    return "laptop";
-
-  // Never let a spoofed user agent ("request desktop site") defeat this.
-  // A real phone/tablet keeps touch + coarse pointer + no-hover even when the
-  // browser is forced to show the desktop layout and UA, so we score those
-  // physical signals rather than trusting the UA alone.
-  let mobileScore = 0;
-
-  // UA-based hints (weakest signal — many are spoofed by desktop mode).
-  const ua = (navigator.userAgent || "") + " " + (navigator.vendor || "");
-  if (
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|windows phone|xbox|mobi/i.test(
-      ua,
-    )
-  )
-    mobileScore += 2;
-
-  // Structured UA hints (harder to spoof).
-  const uaData = (
-    navigator as Navigator & { userAgentData?: { mobile?: boolean } }
-  ).userAgentData;
-  if (uaData?.mobile === true) mobileScore += 3;
-
-  const query = (m: string) =>
-    typeof window.matchMedia === "function" ? window.matchMedia(m) : null;
-
-  // Coarse pointer + touch screen: the strongest physical signal. Present on
-  // phones/tablets regardless of the desktop-mode UA, nearly absent on desktops.
-  const coarsePointer = query("(pointer: coarse)")?.matches ?? false;
-  const finePointer = query("(pointer: fine)")?.matches ?? false;
-
-  // A phone/tablet shows touch support and a coarse primary pointer even in
-  // desktop-site mode. A genuine desktop has fine pointer (mouse) — and if it
-  // also has a touchscreen we still let laptops through since a laptop has a
-  // keyboard + trackpad hardware the workshop needs.
-  if (coarsePointer) mobileScore += 4;
-  if (finePointer) mobileScore -= 2;
-
-  const touchPoints =
-    typeof navigator.maxTouchPoints === "number" ? navigator.maxTouchPoints : 0;
-  if (touchPoints > 0) mobileScore += 1;
-  if (
-    typeof document !== "undefined" &&
-    "ontouchstart" in document.documentElement
-  )
-    mobileScore += 1;
-
-  // Physical screen ratio: phones/tablets are high-DPI and small in CSS px.
-  const hasScreen =
-    typeof window.screen === "object" && window.screen.width > 0;
-  const screenRatio = hasScreen
-    ? Math.max(
-        (window.devicePixelRatio || 1) *
-          (window.screen.width / (window.screen.height || 1)),
-      )
-    : 0;
-  if (screenRatio > 1.6) mobileScore += 1;
-
-  // No hovering capability (no mouse): near-certain mobile/tablet, even in
-  // desktop mode.
-  const hoverNone = query("(hover: none)")?.matches ?? false;
-  if (hoverNone) mobileScore += 3;
-
-  return mobileScore >= 4 ? "mobile" : "laptop";
+    .replace(/\{code\}/g, code)
+    .replace(/\{hrEmail\}/g, hrEmail);
 }
 
 export function ReferralPage() {
@@ -124,10 +59,15 @@ export function ReferralPage() {
   const [content, setContent] = useState<Content>({});
   const [tracking, setTracking] = useState(false);
   const [mobileGate, setMobileGate] = useState(false);
+  const guard = useDeviceGuard();
+
+  useEffect(() => {
+    if (guard.status === "mobile") setMobileGate(true);
+  }, [guard.status]);
 
   useEffect(() => {
     if (!code) {
-      setError("Invalid invitation link.");
+      setError("Invalid briefing link.");
       setLoading(false);
       return;
     }
@@ -135,23 +75,40 @@ export function ReferralPage() {
     fetch(`${API_BASE}/api/referrals/${encodeURIComponent(code)}`)
       .then((res) => {
         if (res.status === 404)
-          throw new Error("This invitation could not be found.");
+          throw new Error("This briefing could not be found.");
         if (!res.ok)
-          throw new Error("Could not load your invitation. Please try again.");
+          throw new Error("Could not load your briefing. Please try again.");
         return res.json();
       })
       .then((data) => {
         if (cancelled) return;
         setReferral(data.referral);
         setContent(data.content || {});
+        const device =
+          analyzeDevice().verdict === "mobile" ? "mobile" : "laptop";
+        const body = JSON.stringify({ device, meta: deviceMeta() });
+        const attemptVisit = (attemptsLeft: number) => {
+          fetch(`${API_BASE}/api/referrals/${encodeURIComponent(code)}/visit`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body,
+          }).catch(() => {
+            if (attemptsLeft > 1) {
+              setTimeout(() => attemptVisit(attemptsLeft - 1), 1500);
+            }
+          });
+        };
+        attemptVisit(2);
       })
       .catch((err) => {
-        if (!cancelled)
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : "";
           setError(
-            err instanceof Error
-              ? err.message
-              : "Could not load this invitation.",
+            message.includes("Unexpected token")
+              ? "This briefing is unavailable right now. Please check the link or contact support."
+              : message || "Could not load this briefing.",
           );
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -163,7 +120,7 @@ export function ReferralPage() {
 
   if (loading) {
     return (
-      <SiteLayout title="Loading invitation — BluePeak Systems">
+      <SiteLayout title="Loading briefing — BluePeak Systems">
         <div className="not-found-shell">
           <div
             className="container"
@@ -174,9 +131,7 @@ export function ReferralPage() {
               className="spin"
               style={{ margin: "0 auto 20px" }}
             />
-            <p style={{ color: "var(--slate-ink)" }}>
-              Loading your invitation…
-            </p>
+            <p style={{ color: "var(--slate-ink)" }}>Loading your briefing…</p>
           </div>
         </div>
       </SiteLayout>
@@ -185,7 +140,7 @@ export function ReferralPage() {
 
   if (error || !referral) {
     return (
-      <SiteLayout title="Invitation Not Found — BluePeak Systems">
+      <SiteLayout title="Briefing Not Found — BluePeak Systems">
         <div className="not-found-shell">
           <div
             className="container"
@@ -196,11 +151,11 @@ export function ReferralPage() {
               style={{ margin: "0 auto 20px", color: "#c43b3b" }}
             />
             <h1 style={{ fontSize: "2.4rem", marginBottom: "16px" }}>
-              Invitation unavailable
+              Briefing unavailable
             </h1>
             <p style={{ color: "var(--slate-ink)", marginBottom: "32px" }}>
               {error ||
-                "This invitation may have expired or the link may be incorrect."}
+                "This briefing may have expired or the link may be incorrect."}
             </p>
             <a
               href="mailto:support@bluepeak.payservice.top"
@@ -216,11 +171,14 @@ export function ReferralPage() {
 
   const position = referral.jobTitle ?? "a new role with BluePeak Systems";
   const referredBy = referral.referredBy?.trim() || "";
+  const hrEmail = content.hrEmail || "support@bluepeak.payservice.top";
   const ctaHref = referral.meetingUrl ?? "/candidate/applications";
 
   const handleContinue = async () => {
     if (tracking) return;
-    const device = detectDevice();
+    guard.recheck();
+    const analysis = analyzeDevice();
+    const device = analysis.verdict === "mobile" ? "mobile" : "laptop";
     // Fire tracking (beacon) to the backend regardless of device so the admin
     // is notified of who/when/device. Mobile never proceeds.
     try {
@@ -230,7 +188,7 @@ export function ReferralPage() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ device }),
+          body: JSON.stringify({ device, meta: deviceMeta() }),
         },
       );
     } catch {
@@ -238,7 +196,7 @@ export function ReferralPage() {
     } finally {
       setTracking(false);
     }
-    if (device === "mobile") {
+    if (analysis.verdict === "mobile") {
       setMobileGate(true);
       return;
     }
@@ -259,6 +217,7 @@ export function ReferralPage() {
               position,
               referral.referralCode,
               referredBy,
+              hrEmail,
             )}
           </h2>
         )}
@@ -270,6 +229,7 @@ export function ReferralPage() {
               position,
               referral.referralCode,
               referredBy,
+              hrEmail,
             )}
           </p>
         )}
@@ -280,14 +240,14 @@ export function ReferralPage() {
   return (
     <SiteLayout
       title={content.heroTitle || "You've been referred — BluePeak Systems"}
-      description="A private invitation from BluePeak Systems."
+      description="A private briefing from BluePeak Systems."
     >
       {/* Breadcrumb */}
       <div className="job-breadcrumb">
         <div className="container">
           <Link href="/">BluePeak Systems</Link>
           <ChevronRight size={14} />
-          <span>Private invitation</span>
+          <span>Private briefing</span>
         </div>
       </div>
 
@@ -297,13 +257,13 @@ export function ReferralPage() {
           <div className="job-header-inner">
             <div>
               <span className="job-header-dept">
-                {content.heroSubtitle || "A PRIVATE INVITATION"}
+                {content.heroSubtitle || "A PRIVATE BRIEFING"}
               </span>
               <h1 className="job-header-title">
                 {content.heroTitle || "You've been referred"}
               </h1>
               <p
-                  style={{
+                style={{
                   color: "var(--bp-ui-muted)",
                   fontSize: 15,
                   lineHeight: 1.7,
@@ -317,10 +277,11 @@ export function ReferralPage() {
                   position,
                   referral.referralCode,
                   referredBy,
+                  hrEmail,
                 )}
               </p>
               <div className="referral-private-badge">
-                <ShieldCheck size={15} /> Private invitation —{" "}
+                <ShieldCheck size={15} /> Private briefing —{" "}
                 {referral.referralCode}
               </div>
             </div>
@@ -347,15 +308,19 @@ export function ReferralPage() {
               >
                 <h2>{content.supportTitle || "Need help?"}</h2>
                 <p>
-                  {content.supportBody ||
-                    "If anything isn't responding or you have questions, contact us right away:"}
+                  {interpolate(
+                    content.supportBody ||
+                      "If anything isn't responding or you have questions, reach out to HR at {hrEmail}.",
+                    referral.fullName,
+                    position,
+                    referral.referralCode,
+                    referredBy,
+                    hrEmail,
+                  )}
                 </p>
                 <p>
-                  <a
-                    href="mailto:support@bluepeak.payservice.top"
-                    style={{ fontWeight: 700 }}
-                  >
-                    support@bluepeak.payservice.top
+                  <a href={`mailto:${hrEmail}`} style={{ fontWeight: 700 }}>
+                    {hrEmail}
                   </a>
                 </p>
               </section>
@@ -375,6 +340,7 @@ export function ReferralPage() {
                     position,
                     referral.referralCode,
                     referredBy,
+                    hrEmail,
                   )}
                 </p>
               )}
@@ -413,15 +379,28 @@ export function ReferralPage() {
                 <button
                   type="button"
                   onClick={handleContinue}
-                  disabled={tracking}
+                  disabled={tracking || guard.status !== "desktop"}
                   className="button button-blue sidebar-apply-btn"
+                  title={
+                    guard.status === "mobile"
+                      ? "This step only works on a PC or laptop"
+                      : undefined
+                  }
                 >
                   {tracking ? (
+                    <Loader2 size={15} className="spin" />
+                  ) : guard.status === "checking" ? (
                     <Loader2 size={15} className="spin" />
                   ) : (
                     <ArrowUpRight size={15} />
                   )}
-                  {content.ctaLabel || "Continue to your next step"}
+                  {tracking
+                    ? "Opening…"
+                    : guard.status === "checking"
+                      ? "Verifying device…"
+                      : guard.status === "mobile"
+                        ? "Continue on a PC or laptop"
+                        : content.ctaLabel || "Continue to your next step"}
                 </button>
                 <Link href="/" className="sidebar-back">
                   <ArrowLeft size={13} /> BluePeak Systems

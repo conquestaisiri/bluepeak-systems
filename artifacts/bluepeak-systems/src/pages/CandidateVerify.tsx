@@ -1,57 +1,71 @@
-import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'wouter';
-import { Loader2, CheckCircle, AlertCircle, ArrowUpRight } from 'lucide-react';
-import { SiteLayout } from '@/components/site/SiteLayout';
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "wouter";
+import { Loader2, CheckCircle, AlertCircle, ArrowUpRight } from "lucide-react";
+import { SiteLayout } from "@/components/site/SiteLayout";
 
 export function CandidateVerify() {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  const token = searchParams.get("token");
 
-  const [state, setState] = useState<'verifying' | 'success' | 'error'>('verifying');
-  const [message, setMessage] = useState('');
-  const [email, setEmail] = useState('');
+  const [state, setState] = useState<"verifying" | "success" | "error">(
+    "verifying",
+  );
+  const [message, setMessage] = useState("");
+  const [email, setEmail] = useState("");
 
   useEffect(() => {
     if (!token) {
-      setState('error');
-      setMessage('Invalid or missing sign-in link. Please request a new one.');
+      setState("error");
+      setMessage("Invalid or missing sign-in link. Please request a new one.");
       return;
     }
 
     const verify = async () => {
       try {
-        const res = await fetch(`/api/auth/verify?token=${encodeURIComponent(token)}`);
+        const res = await fetch(
+          `/api/auth/verify?token=${encodeURIComponent(token)}`,
+        );
         const data = await res.json();
 
         if (!res.ok) {
-          throw new Error(data.error || 'Invalid or expired sign-in link');
+          throw new Error(data.error || "Invalid or expired sign-in link");
         }
 
         // Store the token in localStorage for subsequent API calls
-        localStorage.setItem('candidate_token', data.token);
+        localStorage.setItem("candidate_token", data.token);
         setEmail(data.email);
-        setState('success');
-        setMessage('Welcome back! Redirecting to your applications...');
+        setState("success");
+        setMessage("Welcome back! Redirecting to your applications...");
 
         // Redirect to applications page after a short delay
         setTimeout(() => {
-          window.location.href = '/candidate/applications';
+          window.location.href = "/candidate/applications";
         }, 2000);
       } catch (err) {
-        setState('error');
-        setMessage(err instanceof Error ? err.message : 'Sign-in failed. Please request a new link.');
+        setState("error");
+        setMessage(
+          err instanceof Error
+            ? err.message
+            : "Sign-in failed. Please request a new link.",
+        );
       }
     };
 
     verify();
   }, [token]);
 
-  if (state === 'verifying') {
+  if (state === "verifying") {
     return (
       <SiteLayout title="Signing In — BluePeak Systems">
         <div className="auth-shell">
           <div className="auth-card reveal is-visible">
-            <div className="auth-brand"><img src="/bluepeak-mark.svg" alt="BluePeak Systems" className="candidate-logo" /></div>
+            <div className="auth-brand">
+              <img
+                src="/bluepeak-mark.svg"
+                alt="BluePeak Systems"
+                className="candidate-logo"
+              />
+            </div>
             <div className="auth-verifying">
               <Loader2 size={48} className="spin" />
               <h2>Verifying your sign-in link…</h2>
@@ -63,19 +77,28 @@ export function CandidateVerify() {
     );
   }
 
-  if (state === 'success') {
+  if (state === "success") {
     return (
       <SiteLayout title="Sign In Successful — BluePeak Systems">
         <div className="auth-shell">
           <div className="auth-card reveal is-visible">
-            <div className="auth-brand"><img src="/bluepeak-mark.svg" alt="BluePeak Systems" className="candidate-logo" /></div>
+            <div className="auth-brand">
+              <img
+                src="/bluepeak-mark.svg"
+                alt="BluePeak Systems"
+                className="candidate-logo"
+              />
+            </div>
             <div className="auth-success">
               <div className="success-icon">
                 <CheckCircle size={48} strokeWidth={1.5} />
               </div>
               <h2>Welcome back, {email}</h2>
               <p>{message}</p>
-              <Link href="/candidate/applications" className="button button-blue">
+              <Link
+                href="/candidate/applications"
+                className="button button-blue"
+              >
                 Go to my applications <ArrowUpRight size={16} />
               </Link>
             </div>
@@ -89,7 +112,13 @@ export function CandidateVerify() {
     <SiteLayout title="Sign In Failed — BluePeak Systems">
       <div className="auth-shell">
         <div className="auth-card reveal is-visible">
-          <div className="auth-brand"><img src="/bluepeak-mark.svg" alt="BluePeak Systems" className="candidate-logo" /></div>
+          <div className="auth-brand">
+            <img
+              src="/bluepeak-mark.svg"
+              alt="BluePeak Systems"
+              className="candidate-logo"
+            />
+          </div>
           <div className="auth-error-state">
             <div className="error-icon">
               <AlertCircle size={48} strokeWidth={1.5} />

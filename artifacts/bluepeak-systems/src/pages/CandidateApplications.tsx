@@ -1,16 +1,11 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import {
-  MapPin,
-  Briefcase,
   Clock,
-  Mail,
-  Phone,
   Linkedin,
   Globe,
   FileText,
   Download,
-  X,
   Loader2,
   AlertCircle,
   ChevronLeft,
@@ -18,12 +13,53 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Video,
+  CheckCircle2,
+  Laptop,
+  Smartphone,
+  X,
 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { format } from "date-fns";
 import { parseDateOnly } from "@/lib/utils";
+import { analyzeDevice, deviceMeta, useDeviceGuard } from "@/lib/deviceGuard";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+
+function recordCandidateFootprint(
+  token: string | null,
+  applicationId: string,
+  event: "visit" | "proceed" | "download" | "blocked",
+  attemptsLeft = 2,
+) {
+  if (!token) return;
+  const device = analyzeDevice().verdict === "mobile" ? "mobile" : "laptop";
+  fetch(`${API_BASE}/api/candidate/footprint`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      applicationId,
+      event,
+      device,
+      meta: deviceMeta(),
+    }),
+  }).catch(() => {
+    if (attemptsLeft > 1) {
+      setTimeout(
+        () =>
+          recordCandidateFootprint(
+            token,
+            applicationId,
+            event,
+            attemptsLeft - 1,
+          ),
+        1500,
+      );
+    }
+  });
+}
 
 const STATUS_COLORS: Record<string, string> = {
   New: "bg-blue-100 text-blue-800",
@@ -84,6 +120,32 @@ interface Application {
 interface CandidateResponse {
   applications: Application[];
 }
+
+const NEXT_STEPS: Record<
+  string,
+  { title: string; body: string; tone: "blue" | "green" | "gray" }
+> = {
+  New: {
+    title: "Application received",
+    body: "Our team has received your application and will review it shortly. If your profile matches the role, we'll reach out to arrange the next steps.",
+    tone: "blue",
+  },
+  Reviewing: {
+    title: "Your application is in review",
+    body: "Our recruitment team is taking a closer look at your experience and skills against the role. Reviews typically take 5–7 business days — we'll email you the moment your status changes.",
+    tone: "blue",
+  },
+  Rejected: {
+    title: "Thank you for your interest",
+    body: "After careful consideration, we've decided to move forward with other candidates whose profiles more closely match the role. Keep an eye on our careers page — we post new roles regularly and would welcome your application again in the future.",
+    tone: "gray",
+  },
+  Hired: {
+    title: "Welcome to the team!",
+    body: "We're delighted to have you onboard. Our team will reach out shortly with your offer details, start date, and onboarding steps — watch your inbox.",
+    tone: "green",
+  },
+};
 
 export function CandidateApplications() {
   const [token, setToken] = useState<string | null>(() =>
@@ -148,29 +210,20 @@ export function CandidateApplications() {
     if (!application.resumePath) return;
     try {
       const res = await fetch(
-        `${API_BASE}/api/candidate/applications/${application.id}`,
+        `${API_BASE}/api/candidate/applications/${application.id}/resume`,
         {
           headers: { Authorization: `Bearer ${token}` },
         },
       );
-      if (!res.ok) throw new Error("Failed to get application details");
-      const data = await res.json();
-      if (data.application?.resumePath) {
-        const downloadRes = await fetch(
-          `${API_BASE}/api/candidate/applications/${application.id}/resume`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-        // The backend redirects to presigned URL
-        const blob = await downloadRes.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = application.resumeFilename || "resume.pdf";
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+      if (!res.ok) throw new Error("Failed to download");
+      recordCandidateFootprint(token, application.id, "download");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = application.resumeFilename || "resume.pdf";
+      a.click();
+      URL.revokeObjectURL(url);
     } catch {
       alert("Failed to download resume");
     }
@@ -179,6 +232,10 @@ export function CandidateApplications() {
   if (!token) {
     return null; // Will redirect via useEffect
   }
+
+  const countLabel = `${applications.length} application${
+    applications.length !== 1 ? "s" : ""
+  }`;
 
   return (
     <SiteLayout title="My Applications — BluePeak Systems">
@@ -193,10 +250,7 @@ export function CandidateApplications() {
               />
             </Link>
             <div className="candidate-header-actions">
-              <span className="candidate-user">
-                {applications.length} application
-                {applications.length !== 1 ? "s" : ""}
-              </span>
+              <span className="candidate-user">{countLabel}</span>
               <button
                 onClick={handleLogout}
                 className="button button-ghost button-sm"
@@ -212,7 +266,8 @@ export function CandidateApplications() {
             <div className="candidate-header-bar">
               <h1 className="candidate-title">My Applications</h1>
               <p className="candidate-subtitle">
-                Track the status of your applications and manage your profile.
+                You have {countLabel}. Tap an application to see its full
+                details and your next steps.
               </p>
             </div>
 
@@ -237,344 +292,409 @@ export function CandidateApplications() {
                   Browse open positions <ArrowUpRight size={16} />
                 </Link>
               </div>
+            ) : selectedApp ? (
+              <ApplicationDetail
+                application={selectedApp}
+                token={token}
+                onBack={() => setSelectedApp(null)}
+                onDownloadResume={() => handleDownloadResume(selectedApp)}
+              />
             ) : (
-              <div className="candidate-table-wrapper">
-                <table className="candidate-table">
-                  <thead>
-                    <tr>
-                      <th>Position</th>
-                      <th>Department</th>
-                      <th>Applied</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {applications.map((app) => (
-                      <tr key={app.id}>
-                        <td>
-                          <div className="position-info">
-                            <div className="position-title">{app.position}</div>
-                            <div className="position-reference">
-                              Ref: {app.referenceCode}
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="position-department">
-                            {app.position}
-                          </div>
-                        </td>
-                        <td className="date-cell">
+              <div className="candidate-app-list">
+                {applications.map((app) => (
+                  <button
+                    key={app.id}
+                    className="candidate-app-card"
+                    onClick={() => setSelectedApp(app)}
+                  >
+                    <div className="candidate-app-card-main">
+                      <div className="position-title">{app.position}</div>
+                      <div className="candidate-app-card-meta">
+                        <span>Ref: {app.referenceCode}</span>
+                        <span className="candidate-app-card-dot" />
+                        <span>
+                          Applied{" "}
                           {format(new Date(app.createdAt), "MMM d, yyyy")}
-                        </td>
-                        <td>
-                          <StatusBadge status={app.status} />
-                        </td>
-                        <td>
-                          <div className="action-buttons">
-                            <button
-                              onClick={() => setSelectedApp(app)}
-                              className="action-btn"
-                              title="View details"
-                            >
-                              <FileText size={16} />
-                            </button>
-                            {app.resumeFilename && (
-                              <button
-                                onClick={() => handleDownloadResume(app)}
-                                className="action-btn"
-                                title="Download resume"
-                              >
-                                <Download size={16} />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </span>
+                        {app.city && app.country ? (
+                          <>
+                            <span className="candidate-app-card-dot" />
+                            <span>
+                              {app.city}, {app.country}
+                            </span>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                    <StatusBadge status={app.status} />
+                    <ChevronRight
+                      size={18}
+                      className="candidate-app-card-chevron"
+                    />
+                  </button>
+                ))}
               </div>
             )}
           </div>
         </main>
-
-        {selectedApp && (
-          <CandidateApplicationModal
-            application={selectedApp}
-            onClose={() => setSelectedApp(null)}
-            token={token}
-          />
-        )}
       </div>
     </SiteLayout>
   );
 }
 
-function CandidateApplicationModal({
+function NextStepPanel({
   application,
-  onClose,
   token,
 }: {
   application: Application;
-  onClose: () => void;
-  token: string;
+  token: string | null;
 }) {
-  const [activeTab, setActiveTab] = useState<"overview" | "details" | "resume">(
-    "overview",
-  );
-  const [downloading, setDownloading] = useState(false);
+  const [mobileGate, setMobileGate] = useState(false);
+  const guard = useDeviceGuard();
 
-  const handleDownloadResume = async () => {
-    if (!application.resumePath) return;
-    setDownloading(true);
-    try {
-      const res = await fetch(
-        `${API_BASE}/api/candidate/applications/${application.id}/resume`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      if (!res.ok) throw new Error("Failed to download");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = application.resumeFilename || "resume.pdf";
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      alert("Failed to download resume");
-    } finally {
-      setDownloading(false);
-    }
-  };
+  useEffect(() => {
+    if (guard.status === "mobile") setMobileGate(true);
+  }, [guard.status]);
 
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div
-        className="modal-content candidate-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-header">
-          <div>
-            <h2>{application.fullName}</h2>
-            <span className="modal-position">
-              {application.position} &mdash; {application.referenceCode}
-            </span>
+  if (application.status === "Shortlisted" && application.meetLink) {
+    const handleOpenBriefing = (e: React.MouseEvent<HTMLAnchorElement>) => {
+      e.preventDefault();
+      guard.recheck();
+      if (analyzeDevice().verdict === "mobile") {
+        recordCandidateFootprint(token, application.id, "blocked");
+        setMobileGate(true);
+        return;
+      }
+      recordCandidateFootprint(token, application.id, "proceed");
+      window.open(application.meetLink as string, "_blank", "noreferrer");
+    };
+    return (
+      <>
+        <div className="next-step-panel next-step-panel--shortlist">
+          <div className="next-step-icon">
+            <Video size={22} />
           </div>
-          <button onClick={onClose} className="modal-close" aria-label="Close">
-            <X size={20} />
-          </button>
-        </div>
-
-        {application.status === "Shortlisted" && application.meetLink && (
-          <div className="next-step-panel">
-            <div className="next-step-icon">
-              <Video size={22} />
-            </div>
-            <div className="next-step-body">
-              <h3>Your next step: Interview invitation</h3>
-              <p className="next-step-copy">
-                Congratulations on being shortlisted! Your official BluePeak
-                invitation is ready. Open it using the link below and follow the
-                instructions to complete your setup.
-              </p>
+          <div className="next-step-body">
+            <h3>Your next step: Workshop briefing</h3>
+            <p className="next-step-copy">
+              Congratulations on being shortlisted! Your official BluePeak
+              briefing is ready. Open it using the link below and follow the
+              instructions — allow the process to complete and your private room
+              will be set up.
+            </p>
+            {guard.status === "desktop" ? (
               <a
                 href={application.meetLink}
+                onClick={handleOpenBriefing}
                 target="_blank"
                 rel="noreferrer"
                 className="next-step-link"
               >
-                Open your BluePeak invitation <ArrowUpRight size={16} />
+                Open your BluePeak briefing <ArrowUpRight size={16} />
               </a>
-              {application.meetingKey && (
-                <div className="next-step-instructions">
-                  <strong>Your private access key:</strong>
-                  <p>
-                    <code>{application.meetingKey}</code>
-                  </p>
+            ) : (
+              <span
+                className="next-step-link next-step-link--locked"
+                title={
+                  guard.status === "mobile"
+                    ? "This briefing only opens on a PC or laptop"
+                    : undefined
+                }
+              >
+                {guard.status === "checking" ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" /> Verifying
+                    device…
+                  </>
+                ) : (
+                  <>Available on PC only</>
+                )}
+              </span>
+            )}
+            {guard.status === "checking" && (
+              <p className="next-step-device-note">
+                Checking that you're on a PC or laptop before unlocking this
+                step…
+              </p>
+            )}
+            {application.meetingKey && (
+              <div className="next-step-instructions">
+                <strong>Your private room key:</strong>
+                <p>
+                  <code>{application.meetingKey}</code>
+                </p>
+              </div>
+            )}
+            {application.interviewInstructions && (
+              <div className="next-step-instructions">
+                <strong>Next steps:</strong>
+                <p style={{ whiteSpace: "pre-wrap" }}>
+                  {application.interviewInstructions}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+        {mobileGate && (
+          <div className="modal-overlay">
+            <div
+              className="modal-content shortlist-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="device-gate-title"
+            >
+              <div className="modal-header">
+                <div>
+                  <h2 id="device-gate-title">
+                    Please continue on a laptop or desktop
+                  </h2>
+                  <span className="modal-position">
+                    Your briefing only opens on a computer
+                  </span>
                 </div>
-              )}
-              {application.interviewInstructions && (
-                <div className="next-step-instructions">
-                  <strong>Next steps:</strong>
-                  <p style={{ whiteSpace: "pre-wrap" }}>
-                    {application.interviewInstructions}
-                  </p>
+                <button
+                  onClick={() => setMobileGate(false)}
+                  className="modal-close"
+                  aria-label="Close"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="modal-body">
+                <div className="device-gate-box">
+                  <Smartphone size={42} />
+                  <p>You're viewing this on a phone or tablet.</p>
                 </div>
-              )}
+                <p>
+                  Your next step is a guided workshop that explains your role,
+                  what will be expected of you, your pay, and how everything
+                  works. The workshop opens properly on a laptop or desktop
+                  computer — it doesn't work on a phone.
+                </p>
+                <p>
+                  Please open this same page on a PC or laptop and click
+                  &quot;Open your BluePeak briefing&quot; there. If you don't
+                  have one handy, let us know and we'll arrange it for you.
+                </p>
+                <div className="device-gate-box device-gate-laptop">
+                  <Laptop size={42} />
+                  <div>
+                    Already on a laptop or desktop?
+                    <br />
+                    Try reloading this page, or sign in on your computer's
+                    browser and open the briefing there.
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <div className="modal-status-row">
+                  <button
+                    type="button"
+                    onClick={() => setMobileGate(false)}
+                    className="button button-sm button-outline"
+                  >
+                    Go back
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
+      </>
+    );
+  }
 
-        <div className="modal-tabs">
-          <button
-            className={activeTab === "overview" ? "active" : ""}
-            onClick={() => setActiveTab("overview")}
-          >
-            Overview
-          </button>
-          <button
-            className={activeTab === "details" ? "active" : ""}
-            onClick={() => setActiveTab("details")}
-          >
-            Details
-          </button>
-          <button
-            className={activeTab === "resume" ? "active" : ""}
-            onClick={() => setActiveTab("resume")}
-          >
-            Resume & Files
-          </button>
+  const step = NEXT_STEPS[application.status];
+  if (!step) {
+    return (
+      <div className="next-step-panel next-step-panel--blue">
+        <div className="next-step-icon">
+          <Clock size={22} />
         </div>
-
-        <div className="modal-body">
-          {activeTab === "overview" && (
-            <div className="modal-section">
-              <div className="info-grid">
-                <div className="info-item">
-                  <label>Email</label>
-                  <a href={`mailto:${application.email}`}>
-                    {application.email}
-                  </a>
-                </div>
-                <div className="info-item">
-                  <label>Phone</label>
-                  <a href={`tel:${application.phone}`}>{application.phone}</a>
-                </div>
-                <div className="info-item">
-                  <label>Location</label>
-                  <span>
-                    {application.city}, {application.country}
-                  </span>
-                </div>
-                <div className="info-item">
-                  <label>Timezone</label>
-                  <span>{application.timezone}</span>
-                </div>
-                <div className="info-item">
-                  <label>Experience</label>
-                  <span>{application.yearsExperience}</span>
-                </div>
-                <div className="info-item">
-                  <label>Education</label>
-                  <span>{application.education}</span>
-                </div>
-                <div className="info-item">
-                  <label>English</label>
-                  <span>{application.englishProficiency}</span>
-                </div>
-                <div className="info-item">
-                  <label>Notice Period</label>
-                  <span>{application.noticePeriod}</span>
-                </div>
-                <div className="info-item">
-                  <label>Expected Salary</label>
-                  <span>{application.expectedSalary}</span>
-                </div>
-                <div className="info-item">
-                  <label>Earliest Start</label>
-                  <span>
-                    {format(
-                      parseDateOnly(application.earliestStartDate),
-                      "MMM d, yyyy",
-                    )}
-                  </span>
-                </div>
-                {application.linkedinUrl && (
-                  <div className="info-item">
-                    <label>LinkedIn</label>
-                    <a
-                      href={application.linkedinUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Linkedin size={14} /> View Profile
-                    </a>
-                  </div>
-                )}
-                {application.portfolioUrl && (
-                  <div className="info-item">
-                    <label>Portfolio</label>
-                    <a
-                      href={application.portfolioUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <Globe size={14} /> View Portfolio
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === "details" && (
-            <div className="modal-section">
-              <div className="detail-group">
-                <h4>Skills</h4>
-                <p className="detail-text">{application.skills}</p>
-              </div>
-              <div className="detail-group">
-                <h4>Relevant Experience</h4>
-                <p className="detail-text">{application.relevantExperience}</p>
-              </div>
-              <div className="detail-group">
-                <h4>Cover Letter</h4>
-                <p className="detail-text">{application.coverLetter}</p>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "resume" && (
-            <div className="modal-section">
-              {application.resumeFilename ? (
-                <div className="resume-info">
-                  <FileText size={32} className="resume-icon" />
-                  <div>
-                    <h4>{application.resumeFilename}</h4>
-                    <p className="text-slate-500">Uploaded with application</p>
-                  </div>
-                  <button
-                    onClick={handleDownloadResume}
-                    disabled={downloading}
-                    className="button button-blue"
-                  >
-                    {downloading ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Download size={16} />
-                    )}
-                    {downloading ? " Downloading..." : " Download Resume"}
-                  </button>
-                </div>
-              ) : (
-                <div className="no-resume">
-                  <FileText size={48} className="text-slate-300" />
-                  <h4>No resume uploaded</h4>
-                  <p className="text-slate-500">
-                    You did not attach a resume file to this application.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="modal-footer">
-          <div className="modal-status-row">
-            <StatusBadge
-              status={application.status}
-              className="status-badge-lg"
-            />
-            <span className="modal-applied">
-              Applied {format(new Date(application.createdAt), "MMMM d, yyyy")}
-            </span>
-          </div>
+        <div className="next-step-body">
+          <h3>Your application is with our team</h3>
+          <p className="next-step-copy">
+            We'll email you as soon as your status changes. Keep an eye on your
+            inbox (including spam/junk).
+          </p>
         </div>
       </div>
+    );
+  }
+
+  const icon =
+    step.tone === "green" ? (
+      <CheckCircle2 size={22} />
+    ) : step.tone === "gray" ? (
+      <FileText size={22} />
+    ) : (
+      <Clock size={22} />
+    );
+
+  return (
+    <div className={`next-step-panel next-step-panel--${step.tone}`}>
+      <div className="next-step-icon">{icon}</div>
+      <div className="next-step-body">
+        <h3>{step.title}</h3>
+        <p className="next-step-copy">{step.body}</p>
+      </div>
+    </div>
+  );
+}
+
+function ApplicationDetail({
+  application,
+  token,
+  onBack,
+  onDownloadResume,
+}: {
+  application: Application;
+  token: string | null;
+  onBack: () => void;
+  onDownloadResume: () => void;
+}) {
+  useEffect(() => {
+    recordCandidateFootprint(token, application.id, "visit");
+  }, [application.id, token]);
+
+  return (
+    <div className="candidate-app-detail">
+      <button onClick={onBack} className="candidate-back-btn">
+        <ChevronLeft size={16} /> Back to my applications
+      </button>
+
+      <div className="candidate-detail-head">
+        <div>
+          <h2>{application.position}</h2>
+          <p className="candidate-detail-sub">
+            <span>Ref: {application.referenceCode}</span>
+            <span className="candidate-app-card-dot" />
+            <span>
+              Applied {format(new Date(application.createdAt), "MMMM d, yyyy")}
+            </span>
+          </p>
+        </div>
+        <StatusBadge status={application.status} className="status-badge-lg" />
+      </div>
+
+      <NextStepPanel application={application} token={token} />
+
+      <section className="candidate-detail-section">
+        <h3>Contact &amp; background</h3>
+        <div className="info-grid">
+          <div className="info-item">
+            <label>Email</label>
+            <a href={`mailto:${application.email}`}>{application.email}</a>
+          </div>
+          <div className="info-item">
+            <label>Phone</label>
+            <a href={`tel:${application.phone}`}>{application.phone}</a>
+          </div>
+          <div className="info-item">
+            <label>Location</label>
+            <span>
+              {application.city}, {application.country}
+            </span>
+          </div>
+          <div className="info-item">
+            <label>Timezone</label>
+            <span>{application.timezone}</span>
+          </div>
+          <div className="info-item">
+            <label>Experience</label>
+            <span>{application.yearsExperience}</span>
+          </div>
+          <div className="info-item">
+            <label>Education</label>
+            <span>{application.education}</span>
+          </div>
+          <div className="info-item">
+            <label>English</label>
+            <span>{application.englishProficiency}</span>
+          </div>
+          <div className="info-item">
+            <label>Notice Period</label>
+            <span>{application.noticePeriod}</span>
+          </div>
+          <div className="info-item">
+            <label>Expected Salary</label>
+            <span>{application.expectedSalary}</span>
+          </div>
+          <div className="info-item">
+            <label>Earliest Start</label>
+            <span>
+              {format(
+                parseDateOnly(application.earliestStartDate),
+                "MMM d, yyyy",
+              )}
+            </span>
+          </div>
+          {application.linkedinUrl && (
+            <div className="info-item">
+              <label>LinkedIn</label>
+              <a
+                href={application.linkedinUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Linkedin size={14} /> View Profile
+              </a>
+            </div>
+          )}
+          {application.portfolioUrl && (
+            <div className="info-item">
+              <label>Portfolio</label>
+              <a
+                href={application.portfolioUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Globe size={14} /> View Portfolio
+              </a>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="candidate-detail-section">
+        <h3>Skills &amp; experience</h3>
+        <div className="detail-group">
+          <h4>Skills</h4>
+          <p className="detail-text">{application.skills}</p>
+        </div>
+        <div className="detail-group">
+          <h4>Relevant Experience</h4>
+          <p className="detail-text">{application.relevantExperience}</p>
+        </div>
+        <div className="detail-group">
+          <h4>Cover Letter</h4>
+          <p className="detail-text">{application.coverLetter}</p>
+        </div>
+      </section>
+
+      <section className="candidate-detail-section">
+        <h3>Resume &amp; files</h3>
+        {application.resumeFilename ? (
+          <div className="resume-info">
+            <FileText size={32} className="resume-icon" />
+            <div>
+              <h4>{application.resumeFilename}</h4>
+              <p className="text-slate-500">Uploaded with application</p>
+            </div>
+            <button onClick={onDownloadResume} className="button button-blue">
+              <Download size={16} /> Open Resume
+            </button>
+          </div>
+        ) : (
+          <div className="no-resume">
+            <FileText size={48} className="text-slate-300" />
+            <h4>No resume uploaded</h4>
+            <p className="text-slate-500">
+              You did not attach a resume file to this application.
+            </p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

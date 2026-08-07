@@ -11,12 +11,13 @@ import {
   Send,
   Eye,
   Gauge,
-  FileUp,
   CheckCircle2,
   MousePointerClick,
   RotateCcw,
+  Eraser,
+  History,
+  Mail,
 } from "lucide-react";
-import { ImportModal } from "@/pages/Admin/ImportModal";
 import { handleAdminUnauthorized, isUnauthorized } from "@/lib/adminAuth";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -46,7 +47,41 @@ interface ReferralRow {
   lastDevice: string | null;
   createdAt: string;
   updatedAt: string;
+  footprint?: FootprintSummary | null;
 }
+
+interface FootprintSummary {
+  visits: number;
+  clicks: number;
+  downloads: number;
+  blocked: number;
+  firstVisitAt: string | null;
+  lastVisitAt: string | null;
+  lastVisitDevice: string | null;
+  lastClickAt: string | null;
+  lastClickDevice: string | null;
+  hesitant: boolean;
+}
+
+interface FootprintEvent {
+  id: string;
+  subjectType: string;
+  subjectId: string;
+  event: string;
+  device: string;
+  userAgent: string | null;
+  createdAt: string;
+}
+
+const FOOTPRINT_FILTERS = [
+  { value: "", label: "All footprints" },
+  { value: "visited", label: "Visited" },
+  { value: "not_visited", label: "Not visited" },
+  { value: "clicked", label: "Clicked" },
+  { value: "not_clicked", label: "Not clicked" },
+  { value: "hesitant", label: "Hesitant (visited, no click)" },
+  { value: "blocked", label: "Blocked on mobile" },
+];
 
 interface SendStatus {
   dailyLimit: number;
@@ -704,9 +739,12 @@ export function ReferralsAdmin({ token }: { token: string }) {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [footprintFilter, setFootprintFilter] = useState("");
   const [status, setStatus] = useState<SendStatus | null>(null);
   const [editing, setEditing] = useState<ReferralRow | null>(null);
-  const [importingOpen, setImportingOpen] = useState(false);
+  const [timelineFor, setTimelineFor] = useState<ReferralRow | null>(null);
+  const [timelineEvents, setTimelineEvents] = useState<FootprintEvent[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
   const [contentOpen, setContentOpen] = useState<
     { type: "all" } | { type: "selected"; ids: string[] } | null
   >(null);
@@ -714,6 +752,7 @@ export function ReferralsAdmin({ token }: { token: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sending, setSending] = useState(false);
   const [batchCount, setBatchCount] = useState<string>("");
+  const [clearingAll, setClearingAll] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -722,6 +761,7 @@ export function ReferralsAdmin({ token }: { token: string }) {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (statusFilter) params.set("status", statusFilter);
+      if (footprintFilter) params.set("footprint", footprintFilter);
       const res = await fetch(`${API_BASE}/api/admin/referrals?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -739,7 +779,7 @@ export function ReferralsAdmin({ token }: { token: string }) {
     } finally {
       setLoading(false);
     }
-  }, [token, search, statusFilter]);
+  }, [token, search, statusFilter, footprintFilter]);
 
   const loadStatusAndContent = useCallback(async () => {
     try {
@@ -827,6 +867,35 @@ export function ReferralsAdmin({ token }: { token: string }) {
       setTotal((t) => Math.max(0, t - 1));
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete");
+    }
+  };
+
+  const clearAllReferrals = async () => {
+    if (
+      !window.confirm(
+        `Remove ALL referrals (${total})? Their invite links stop working immediately. This cannot be undone.`,
+      )
+    )
+      return;
+    setClearingAll(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/referrals`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (isUnauthorized(res)) {
+        handleAdminUnauthorized();
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to clear referrals");
+      await load();
+      await loadStatusAndContent();
+      alert(`${data.deleted ?? 0} referrals removed.`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to clear referrals");
+    } finally {
+      setClearingAll(false);
     }
   };
 
@@ -979,7 +1048,61 @@ export function ReferralsAdmin({ token }: { token: string }) {
     }
   };
 
+  const openTimeline = async (row: ReferralRow) => {
+    setTimelineFor(row);
+    setTimelineLoading(true);
+    setTimelineEvents([]);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/admin/footprints?subjectType=referral&subjectId=${row.id}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (isUnauthorized(res)) {
+        handleAdminUnauthorized();
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load timeline");
+      setTimelineEvents(data.events ?? []);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to load timeline");
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
   const unsentCount = referrals.filter((r) => r.status !== "Sent").length;
+
+  const footprintStats = useMemo(() => {
+    const visited = referrals.filter(
+      (r) => r.footprint && r.footprint.visits > 0,
+    ).length;
+    const clicked = referrals.filter(
+      (r) => r.footprint && r.footprint.clicks > 0,
+    ).length;
+    const hesitant = referrals.filter((r) => r.footprint?.hesitant).length;
+    const blocked = referrals.filter(
+      (r) => r.footprint && r.footprint.blocked > 0,
+    ).length;
+    return { visited, clicked, hesitant, blocked };
+  }, [referrals]);
+
+  const footprintChips = [
+    {
+      key: "",
+      label: "All",
+      count: referrals.length,
+    },
+    { key: "visited", label: "Visited", count: footprintStats.visited },
+    {
+      key: "not_visited",
+      label: "Not visited",
+      count: referrals.length - footprintStats.visited,
+    },
+    { key: "clicked", label: "Clicked", count: footprintStats.clicked },
+    { key: "hesitant", label: "Hesitant", count: footprintStats.hesitant },
+    { key: "blocked", label: "Mobile blocked", count: footprintStats.blocked },
+  ] as const;
 
   return (
     <>
@@ -1004,6 +1127,21 @@ export function ReferralsAdmin({ token }: { token: string }) {
           </span>
         </div>
       )}
+
+      <div className="admin-status-strip admin-stats-chips">
+        {footprintChips.map((chip) => (
+          <button
+            key={chip.key}
+            className={`stats-chip${footprintFilter === chip.key ? " active" : ""}`}
+            onClick={() => {
+              setFootprintFilter(chip.key === footprintFilter ? "" : chip.key);
+            }}
+            title={`Show referrals: ${chip.label}`}
+          >
+            <strong>{chip.count}</strong> {chip.label}
+          </button>
+        ))}
+      </div>
 
       {error && (
         <div className="admin-alert">
@@ -1032,11 +1170,29 @@ export function ReferralsAdmin({ token }: { token: string }) {
             <option value="Pending">Pending</option>
             <option value="Sent">Sent</option>
           </select>
-          <button
-            className="button button-blue button-sm"
-            onClick={() => setImportingOpen(true)}
+          <select
+            value={footprintFilter}
+            onChange={(e) => setFootprintFilter(e.target.value)}
+            className="filter-select"
+            aria-label="Filter by footprint"
           >
-            <FileUp size={15} /> Import
+            {FOOTPRINT_FILTERS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+          <button
+            className="button button-outline button-sm"
+            onClick={clearAllReferrals}
+            disabled={clearingAll}
+          >
+            {clearingAll ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Eraser size={15} />
+            )}{" "}
+            Clear all
           </button>
         </div>
       </div>
@@ -1100,13 +1256,9 @@ export function ReferralsAdmin({ token }: { token: string }) {
         <div className="admin-empty">
           <UsersRound size={48} />
           <h3>No referrals yet</h3>
-          <p>Import your contact list or add referrals to begin.</p>
-          <button
-            className="button button-blue"
-            onClick={() => setImportingOpen(true)}
-          >
-            <FileUp size={16} /> Import
-          </button>
+          <p>
+            Add contacts on the Contacts tab, then add them here as referrals.
+          </p>
         </div>
       ) : (
         <div className="admin-table-wrapper">
@@ -1126,13 +1278,17 @@ export function ReferralsAdmin({ token }: { token: string }) {
                 <th>Job</th>
                 <th>Status</th>
                 <th>Clicks</th>
+                <th>Footprint</th>
                 <th>Private link</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {referrals.map((row) => (
-                <tr key={row.id}>
+                <tr
+                  key={row.id}
+                  className={row.footprint?.hesitant ? "hesitant-row" : ""}
+                >
                   <td>
                     <input
                       type="checkbox"
@@ -1205,6 +1361,62 @@ export function ReferralsAdmin({ token }: { token: string }) {
                     )}
                   </td>
                   <td>
+                    {row.footprint ? (
+                      <div className="footprint-cell">
+                        {row.footprint.visits > 0 ? (
+                          <span className="footprint-line">
+                            <span
+                              className={`footprint-badge ${
+                                row.footprint.hesitant
+                                  ? "footprint-badge-hesitant"
+                                  : "footprint-badge-visited"
+                              }`}
+                            >
+                              {row.footprint.hesitant ? "⚠" : "✓"}{" "}
+                              {row.footprint.visits} visit
+                              {row.footprint.visits === 1 ? "" : "s"}
+                              {row.footprint.lastVisitDevice &&
+                                ` · ${row.footprint.lastVisitDevice}`}
+                            </span>
+                            {row.footprint.hesitant && (
+                              <span className="footprint-hesitant-label">
+                                Hesitant — no click yet
+                              </span>
+                            )}
+                            {row.footprint.blocked > 0 && (
+                              <span className="footprint-badge footprint-badge-blocked">
+                                🔒 {row.footprint.blocked} mobile attempt
+                                {row.footprint.blocked === 1 ? "" : "s"} blocked
+                              </span>
+                            )}
+                            {row.footprint.clicks > 0 && (
+                              <span className="footprint-badge footprint-badge-clicked">
+                                {row.footprint.clicks} click
+                                {row.footprint.clicks === 1 ? "" : "s"}
+                                {row.footprint.lastClickDevice &&
+                                  ` · ${row.footprint.lastClickDevice}`}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="footprint-badge footprint-badge-none">
+                            Not visited
+                          </span>
+                        )}
+                        <button
+                          className="footprint-timeline-btn"
+                          onClick={() => openTimeline(row)}
+                        >
+                          <History size={13} /> Timeline
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="footprint-badge footprint-badge-none">
+                        No activity
+                      </span>
+                    )}
+                  </td>
+                  <td>
                     <div className="link-cell">
                       <span className="link-code">{row.referralCode}</span>
                       <button
@@ -1260,6 +1472,114 @@ export function ReferralsAdmin({ token }: { token: string }) {
           </p>
         )}
 
+      {timelineFor && (
+        <div className="modal-overlay" onClick={() => setTimelineFor(null)}>
+          <div
+            className="modal-content shortlist-modal footprint-timeline-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div>
+                <h2>Footprint timeline — {timelineFor.fullName}</h2>
+                <span className="modal-position">
+                  {timelineFor.referralCode} · {timelineFor.email ?? "no email"}
+                </span>
+              </div>
+              <button
+                onClick={() => setTimelineFor(null)}
+                className="modal-close"
+                aria-label="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            {timelineFor.email && (
+              <div className="modal-body footprint-reachout">
+                <a
+                  href={`mailto:${timelineFor.email}?subject=${encodeURIComponent(
+                    "Your BluePeak briefing",
+                  )}&body=${encodeURIComponent(
+                    `Hi ${timelineFor.fullName},\n\nWe noticed you opened your BluePeak briefing${
+                      timelineFor.footprint?.hesitant
+                        ? " but didn't continue to the next step yet"
+                        : timelineFor.footprint?.blocked
+                          ? " from a phone — the next step only works on a PC or laptop, so please open the link on a computer"
+                          : ""
+                    }. This is just a friendly nudge — happy to help if anything wasn't clear.\n\nBest regards,\nBluePeak HR`,
+                  )}`}
+                  className="button button-sm button-outline"
+                >
+                  <Mail size={14} /> Reach out to{" "}
+                  {timelineFor.fullName.split(" ")[0]}
+                </a>
+              </div>
+            )}
+            <div className="modal-body">
+              {timelineLoading ? (
+                <div className="admin-loading" style={{ padding: 30 }}>
+                  <Loader2 size={28} className="animate-spin" />
+                  <p>Loading timeline...</p>
+                </div>
+              ) : timelineEvents.length === 0 ? (
+                <div className="admin-empty">
+                  <History size={40} />
+                  <p>No activity recorded yet for this referral.</p>
+                </div>
+              ) : (
+                <div className="footprint-timeline">
+                  {timelineEvents.map((ev) => (
+                    <div className="footprint-timeline-item" key={ev.id}>
+                      <div
+                        className={`footprint-timeline-dot footprint-timeline-dot--${ev.event}`}
+                      />
+                      <div className="footprint-timeline-body">
+                        <div className="footprint-timeline-head">
+                          <strong>
+                            {ev.event === "click"
+                              ? "Clicked the button"
+                              : ev.event === "proceed"
+                                ? "Proceeded to next step"
+                                : "Visited the page"}
+                          </strong>
+                          <span className="footprint-time">
+                            {new Date(ev.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="footprint-timeline-meta">
+                          Device detected:{" "}
+                          <strong>
+                            {ev.device === "mobile"
+                              ? "📱 Mobile/tablet"
+                              : "💻 PC/laptop"}
+                          </strong>
+                          {ev.userAgent && (
+                            <span className="footprint-time">
+                              {" "}
+                              · UA: {ev.userAgent}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <div className="modal-status-row">
+                <button
+                  type="button"
+                  onClick={() => setTimelineFor(null)}
+                  className="button button-sm button-outline"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editing && (
         <EditReferralModal
           row={editing}
@@ -1279,26 +1599,6 @@ export function ReferralsAdmin({ token }: { token: string }) {
               ? { type: "selected", count: contentOpen.ids.length }
               : { type: "all" }
           }
-        />
-      )}
-
-      {importingOpen && (
-        <ImportModal
-          existingCount={total}
-          onClose={() => setImportingOpen(false)}
-          onDone={(created, updated, skipped) => {
-            const parts: string[] = [];
-            if (created)
-              parts.push(
-                `Imported ${created} new referral${created === 1 ? "" : "s"}`,
-              );
-            if (updated)
-              parts.push(`${updated} existing updated with new detail`);
-            parts.push(`${skipped.length} skipped (duplicates or errors)`);
-            alert(parts.join(".\n") + ".");
-            setImportingOpen(false);
-            load();
-          }}
         />
       )}
     </>

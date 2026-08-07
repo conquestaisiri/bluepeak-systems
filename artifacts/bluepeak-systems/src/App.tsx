@@ -12,7 +12,6 @@ import {
   Headphones,
   Laptop2,
   Layers3,
-  Linkedin,
   Mail,
   MapPin,
   Menu,
@@ -46,6 +45,7 @@ import { CandidateVerify } from "@/pages/CandidateVerify";
 import { CandidateApplications } from "@/pages/CandidateApplications";
 import { ReferralPage } from "@/pages/ReferralPage";
 import { LandingPage } from "@/pages/LandingPage";
+import { SiteFooter } from "@/components/site/SiteFooter";
 import NotFound from "@/pages/not-found";
 import { fetchJobs } from "@/lib/jobsApi";
 
@@ -406,27 +406,84 @@ function Home() {
         <section className="hero hero-editorial">
           <div className="container hero-editorial-inner">
             <div className="hero-topline">
-              <span className="eyebrow"><span className="eyebrow-line" /> WORKFORCE, WITHOUT THE SHORTCUTS</span>
+              <span className="eyebrow">
+                <span className="eyebrow-line" /> WORKFORCE, WITHOUT THE
+                SHORTCUTS
+              </span>
               <span className="hero-index">01 / 05</span>
             </div>
-            <div className="hero-collage" aria-label="People doing different kinds of work">
-              <figure className="hero-image hero-image-office"><img src="/work-office.jpg" alt="Professionals collaborating around a table" /></figure>
-              <figure className="hero-image hero-image-warehouse"><img src="/work-warehouse.jpg" alt="Warehouse worker handling stock and packing operations" /></figure>
-              <figure className="hero-image hero-image-facilities"><img src="/work-facilities.jpg" alt="Facilities worker carrying out practical on-site work" /></figure>
-              <figure className="hero-image hero-image-team"><img src="/work-team.jpg" alt="A diverse team working together" /></figure>
-              <div className="hero-collage-note"><span>Four kinds of work.</span><strong>One dependable partner.</strong></div>
+            <div
+              className="hero-collage"
+              aria-label="People doing different kinds of work"
+            >
+              <figure className="hero-image hero-image-office">
+                <img
+                  src="/work-office.jpg"
+                  alt="Professionals collaborating around a table"
+                />
+              </figure>
+              <figure className="hero-image hero-image-warehouse">
+                <img
+                  src="/work-warehouse.jpg"
+                  alt="Warehouse worker handling stock and packing operations"
+                />
+              </figure>
+              <figure className="hero-image hero-image-facilities">
+                <img
+                  src="/work-facilities.jpg"
+                  alt="Facilities worker carrying out practical on-site work"
+                />
+              </figure>
+              <figure className="hero-image hero-image-team">
+                <img
+                  src="/work-team.jpg"
+                  alt="A diverse team working together"
+                />
+              </figure>
+              <div className="hero-collage-note">
+                <span>Four kinds of work.</span>
+                <strong>One dependable partner.</strong>
+              </div>
             </div>
             <div className="hero-editorial-copy">
-              <h1 className="hero-title">The right people<br /><em>for the work<br />ahead.</em></h1>
+              <h1 className="hero-title">
+                The right people
+                <br />
+                <em>
+                  for the work
+                  <br />
+                  ahead.
+                </em>
+              </h1>
               <div className="hero-editorial-aside">
-                <p>BluePeak helps organizations find, place, and support capable people—from operations and logistics to professional, technical, and field roles.</p>
+                <p>
+                  BluePeak helps organizations find, place, and support capable
+                  people—from operations and logistics to professional,
+                  technical, and field roles.
+                </p>
                 <div className="hero-buttons">
-                  <a className="button button-dark" href="#contact" data-testid="button-build-team">Tell us what you need <ArrowUpRight size={17} /></a>
-                  <Link className="text-link blue-link" href="/careers" data-testid="link-find-role">Find your next role <ArrowDownRight size={17} /></Link>
+                  <a
+                    className="button button-dark"
+                    href="#contact"
+                    data-testid="button-build-team"
+                  >
+                    Tell us what you need <ArrowUpRight size={17} />
+                  </a>
+                  <Link
+                    className="text-link blue-link"
+                    href="/careers"
+                    data-testid="link-find-role"
+                  >
+                    Find your next role <ArrowDownRight size={17} />
+                  </Link>
                 </div>
               </div>
             </div>
-            <div className="hero-credibility"><span>Built for real work</span><span>Remote · Hybrid · On-site</span><span>People in 28+ countries</span></div>
+            <div className="hero-credibility">
+              <span>Built for real work</span>
+              <span>Remote · Hybrid · On-site</span>
+              <span>People in 28+ countries</span>
+            </div>
           </div>
         </section>
 
@@ -679,7 +736,7 @@ function Home() {
                 [
                   "01",
                   "Vetted people, not resumes",
-                  "We interview and test candidates before they reach you, so you only meet people who can actually do the job.",
+                  "We screen and test candidates before they reach you, so you only meet people who can actually do the job.",
                 ],
                 [
                   "02",
@@ -1023,44 +1080,7 @@ function Home() {
         </section>
       </main>
 
-      <footer className="footer">
-        <div className="container footer-top">
-          <button
-            className="brand footer-brand"
-            onClick={() => go("#top")}
-            data-testid="button-footer-brand"
-          >
-            <img
-              src="/bluepeak-mark.svg"
-              alt="BluePeak Systems"
-              className="brand-logo"
-            />
-          </button>
-          <p>Workforce solutions and hiring—handled for you, for any role.</p>
-          <div className="footer-links">
-            <a href="#about">About</a>
-            <a href="#solutions">Solutions</a>
-            <Link href="/careers">Careers</Link>
-            <a href="#contact">Contact</a>
-          </div>
-          <a
-            href="https://www.linkedin.com"
-            target="_blank"
-            rel="noreferrer"
-            className="social-link"
-            aria-label="BluePeak on LinkedIn"
-            data-testid="link-linkedin"
-          >
-            <Linkedin size={17} />
-          </a>
-        </div>
-        <div className="container footer-bottom">
-          <span>
-            © {new Date().getFullYear()} BluePeak Systems. All rights reserved.
-          </span>
-          <span>Building workforces in 28+ countries.</span>
-        </div>
-      </footer>
+      <SiteFooter />
       {showTop && (
         <button
           className="back-top"

@@ -215,3 +215,56 @@ export type CreateReferralInput = Omit<
 export type ReferralClick = typeof referralClicks.$inferSelect;
 export type ReferralContentRow = typeof referralContent.$inferSelect;
 export type ReferralSettingsRow = typeof referralSettings.$inferSelect;
+
+export const contacts = pgTable("contacts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  fullName: text("full_name"),
+  email: text("email"),
+  phone: text("phone"),
+  address: text("address"),
+  postalCode: text("postal_code"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export type Contact = typeof contacts.$inferSelect;
+export type CreateContactInput = typeof contacts.$inferInsert;
+
+export const footprints = pgTable("footprints", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  subjectType: text("subject_type").notNull(),
+  subjectId: uuid("subject_id").notNull(),
+  event: text("event").notNull(),
+  device: text("device").notNull().default("unknown"),
+  userAgent: text("user_agent"),
+  meta: jsonb("meta"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export type Footprint = typeof footprints.$inferSelect;
+
+export const activities = pgTable("activities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  actor: text("actor").notNull(),
+  action: text("action").notNull(),
+  targetType: text("target_type"),
+  targetId: text("target_id"),
+  targetEmail: text("target_email"),
+  detail: jsonb("detail"),
+  status: text("status").notNull().default("ok"),
+  error: text("error"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export type Activity = typeof activities.$inferSelect;
+export type CreateActivityInput = typeof activities.$inferInsert;

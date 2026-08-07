@@ -8,6 +8,9 @@ import {
   referralClicks,
   referralContent,
   referralSettings,
+  contacts,
+  footprints,
+  activities,
 } from "./schema";
 import {
   eq,
@@ -18,9 +21,12 @@ import {
   gte,
   lt,
   desc,
+  asc,
   ilike,
   sql,
   inArray,
+  isNotNull,
+  exists,
   count as drizzleCount,
 } from "drizzle-orm";
 import type {
@@ -36,7 +42,13 @@ import type {
   CreateReferralInput,
   Referral,
   ReferralSettingsRow,
+  Contact,
+  CreateContactInput,
+  Footprint,
+  Activity,
+  CreateActivityInput,
 } from "./schema";
+import type { SQL } from "drizzle-orm";
 
 const CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -444,6 +456,78 @@ export const referralRepository = {
     return rows[0]?.n ?? 0;
   },
 
+  async listWithFootprint(
+    footprint: string,
+    opts: { status?: string; search?: string } = {},
+  ): Promise<Referral[]> {
+    const db = getDb();
+    const conditions = [];
+    if (opts.status) conditions.push(eq(referrals.status, opts.status));
+    if (opts.search) {
+      const term = `%${opts.search.toLowerCase()}%`;
+      conditions.push(
+        or(
+          ilike(referrals.fullName, term),
+          ilike(referrals.email, term),
+          ilike(referrals.referredBy, term),
+          ilike(referrals.jobTitle, term),
+        ),
+      );
+    }
+    const visited = exists(
+      db
+        .select({ one: sql`1` })
+        .from(footprints)
+        .where(
+          and(
+            eq(footprints.subjectType, "referral"),
+            eq(footprints.subjectId, referrals.id),
+            eq(footprints.event, "visit"),
+          ),
+        ),
+    );
+    const clicked = gt(referrals.clickCount, 0);
+    const blocked = exists(
+      db
+        .select({ one: sql`1` })
+        .from(footprints)
+        .where(
+          and(
+            eq(footprints.subjectType, "referral"),
+            eq(footprints.subjectId, referrals.id),
+            eq(footprints.event, "blocked"),
+          ),
+        ),
+    );
+    switch (footprint) {
+      case "visited":
+        conditions.push(visited);
+        break;
+      case "not_visited":
+        conditions.push(sql`NOT (${visited})`);
+        break;
+      case "clicked":
+        conditions.push(clicked);
+        break;
+      case "not_clicked":
+        conditions.push(sql`NOT (${clicked})`);
+        break;
+      case "hesitant":
+        conditions.push(and(visited, sql`NOT (${clicked})`));
+        break;
+      case "blocked":
+        conditions.push(blocked);
+        break;
+    }
+    const whereClause = conditions.length ? and(...conditions) : undefined;
+    return db
+      .select()
+      .from(referrals)
+      .where(whereClause)
+      .orderBy(desc(referrals.createdAt))
+      .limit(5000);
+  },
+
   async countSentToday(): Promise<number> {
     const db = getDb();
     const start = new Date();
@@ -536,6 +620,22 @@ export const referralRepository = {
       .where(eq(referrals.id, id))
       .returning({ id: referrals.id });
     return result.length > 0;
+  },
+
+  async deleteMany(ids: string[]): Promise<number> {
+    const db = getDb();
+    if (ids.length === 0) return 0;
+    const result = await db
+      .delete(referrals)
+      .where(inArray(referrals.id, ids))
+      .returning({ id: referrals.id });
+    return result.length;
+  },
+
+  async clearAll(): Promise<number> {
+    const db = getDb();
+    const result = await db.delete(referrals).returning({ id: referrals.id });
+    return result.length;
   },
 
   async getContent(): Promise<Record<string, string>> {
@@ -669,5 +769,529 @@ export const referralRepository = {
         target: referralSettings.id,
         set: { dailySendLimit: limit, updatedAt: new Date() },
       });
+  },
+};
+
+function contactFootprintCondition(footprint?: string): SQL | undefined {
+  if (!footprint) return undefined;
+  const db = getDb();
+  const visited = exists(
+    db
+      .select({ one: sql`1` })
+      .from(referrals)
+      .where(
+        and(
+          eq(referrals.email, contacts.email),
+          exists(
+            db
+              .select({ one: sql`1` })
+              .from(footprints)
+              .where(
+                and(
+                  eq(footprints.subjectType, "referral"),
+                  eq(footprints.subjectId, referrals.id),
+                  eq(footprints.event, "visit"),
+                ),
+              ),
+          ),
+        ),
+      ),
+  );
+  const clicked = exists(
+    db
+      .select({ one: sql`1` })
+      .from(referrals)
+      .where(
+        and(eq(referrals.email, contacts.email), gt(referrals.clickCount, 0)),
+      ),
+  );
+  const blocked = exists(
+    db
+      .select({ one: sql`1` })
+      .from(referrals)
+      .where(
+        and(
+          eq(referrals.email, contacts.email),
+          exists(
+            db
+              .select({ one: sql`1` })
+              .from(footprints)
+              .where(
+                and(
+                  eq(footprints.subjectType, "referral"),
+                  eq(footprints.subjectId, referrals.id),
+                  eq(footprints.event, "blocked"),
+                ),
+              ),
+          ),
+        ),
+      ),
+  );
+  switch (footprint) {
+    case "visited":
+      return visited;
+    case "not_visited":
+      return sql`NOT (${visited})`;
+    case "clicked":
+      return clicked;
+    case "not_clicked":
+      return sql`NOT (${clicked})`;
+    case "hesitant":
+      return and(visited, sql`NOT (${clicked})`);
+    case "blocked":
+      return blocked;
+    default:
+      return undefined;
+  }
+}
+
+export const contactRepository = {
+  async createMany(inputs: CreateContactInput[]): Promise<number> {
+    const db = getDb();
+    if (inputs.length === 0) return 0;
+    const results = await db.insert(contacts).values(inputs).returning();
+    return results.length;
+  },
+
+  async list(
+    opts: {
+      search?: string;
+      from?: number;
+      limit?: number;
+      footprint?: string;
+    } = {},
+  ): Promise<Contact[]> {
+    const db = getDb();
+    const conditions = [];
+    if (opts.search) {
+      const term = `%${opts.search.toLowerCase()}%`;
+      conditions.push(
+        or(
+          ilike(contacts.fullName, term),
+          ilike(contacts.firstName, term),
+          ilike(contacts.lastName, term),
+          ilike(contacts.email, term),
+          ilike(contacts.phone, term),
+          ilike(contacts.address, term),
+          ilike(contacts.postalCode, term),
+        ),
+      );
+    }
+    const footprintCond = contactFootprintCondition(opts.footprint);
+    if (footprintCond) conditions.push(footprintCond);
+    const whereClause = conditions.length ? and(...conditions) : undefined;
+    return db
+      .select()
+      .from(contacts)
+      .where(whereClause)
+      .orderBy(desc(contacts.createdAt))
+      .limit(opts.limit ?? 100)
+      .offset(opts.from ?? 0);
+  },
+
+  async countAll(
+    opts: { search?: string; footprint?: string } = {},
+  ): Promise<number> {
+    const db = getDb();
+    const conditions = [];
+    if (opts.search) {
+      const term = `%${opts.search.toLowerCase()}%`;
+      conditions.push(
+        or(
+          ilike(contacts.fullName, term),
+          ilike(contacts.firstName, term),
+          ilike(contacts.lastName, term),
+          ilike(contacts.email, term),
+          ilike(contacts.phone, term),
+          ilike(contacts.address, term),
+          ilike(contacts.postalCode, term),
+        ),
+      );
+    }
+    const footprintCond = contactFootprintCondition(opts.footprint);
+    if (footprintCond) conditions.push(footprintCond);
+    const whereClause = conditions.length ? and(...conditions) : undefined;
+    const rows = await db
+      .select({ n: drizzleCount() })
+      .from(contacts)
+      .where(whereClause);
+    return rows[0]?.n ?? 0;
+  },
+
+  async findByEmail(email: string): Promise<Contact | undefined> {
+    const db = getDb();
+    const [result] = await db
+      .select()
+      .from(contacts)
+      .where(eq(contacts.email, email.toLowerCase().trim()))
+      .limit(1);
+    return result;
+  },
+
+  async listAll(): Promise<Contact[]> {
+    const db = getDb();
+    return db.select().from(contacts).orderBy(desc(contacts.createdAt));
+  },
+
+  async listByIds(ids: string[]): Promise<Contact[]> {
+    const db = getDb();
+    if (ids.length === 0) return [];
+    return db
+      .select()
+      .from(contacts)
+      .where(inArray(contacts.id, ids))
+      .orderBy(desc(contacts.createdAt));
+  },
+
+  async importMany(
+    rows: Array<{
+      fullName?: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      zipCode?: string;
+    }>,
+  ): Promise<{ created: Contact[]; updated: Contact[]; skipped: string[] }> {
+    const db = getDb();
+    const created: Contact[] = [];
+    const updated: Contact[] = [];
+    const skipped: string[] = [];
+    for (const row of rows) {
+      const fullName = (row.fullName ?? "").trim();
+      if (!fullName) {
+        skipped.push("unnamed row");
+        continue;
+      }
+      const email = (row.email ?? "").trim().toLowerCase() || null;
+      const nameParts = fullName.split(/\s+/);
+      const firstName = nameParts[0] ?? null;
+      const lastName =
+        nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
+      const phone = (row.phone ?? "").trim() || null;
+      const address = (row.address ?? "").trim() || null;
+      const postalCode = (row.zipCode ?? "").trim() || null;
+      try {
+        if (email) {
+          const existing = await this.findByEmail(email);
+          if (existing) {
+            const patch: Partial<CreateContactInput> = {
+              updatedAt: new Date(),
+            };
+            if (!existing.firstName && firstName) patch.firstName = firstName;
+            if (!existing.lastName && lastName) patch.lastName = lastName;
+            if (!existing.fullName && fullName) patch.fullName = fullName;
+            if (!existing.phone && phone) patch.phone = phone;
+            if (!existing.address && address) patch.address = address;
+            if (!existing.postalCode && postalCode) {
+              patch.postalCode = postalCode;
+            }
+            if (Object.keys(patch).length > 1) {
+              const [result] = await db
+                .update(contacts)
+                .set(patch)
+                .where(eq(contacts.id, existing.id))
+                .returning();
+              if (result) updated.push(result);
+            } else {
+              updated.push(existing);
+            }
+            continue;
+          }
+        }
+        const [result] = await db
+          .insert(contacts)
+          .values({
+            firstName,
+            lastName,
+            fullName,
+            email,
+            phone,
+            address,
+            postalCode,
+          })
+          .returning();
+        created.push(result);
+      } catch (err) {
+        skipped.push(`${fullName} - ${(err as Error).message}`);
+      }
+    }
+    return { created, updated, skipped };
+  },
+
+  async deleteMany(ids: string[]): Promise<number> {
+    const db = getDb();
+    if (ids.length === 0) return 0;
+    const result = await db
+      .delete(contacts)
+      .where(inArray(contacts.id, ids))
+      .returning({ id: contacts.id });
+    return result.length;
+  },
+
+  async clearAll(): Promise<number> {
+    const db = getDb();
+    const result = await db.delete(contacts).returning({ id: contacts.id });
+    return result.length;
+  },
+
+  async delete(id: string): Promise<boolean> {
+    const db = getDb();
+    const result = await db
+      .delete(contacts)
+      .where(eq(contacts.id, id))
+      .returning({ id: contacts.id });
+    return result.length > 0;
+  },
+};
+
+export type FootprintSummary = {
+  visits: number;
+  clicks: number;
+  downloads: number;
+  blocked: number;
+  firstVisitAt: Date | null;
+  lastVisitAt: Date | null;
+  lastVisitDevice: string | null;
+  lastClickAt: Date | null;
+  lastClickDevice: string | null;
+  hesitant: boolean;
+};
+
+function emptyFootprintSummary(): FootprintSummary {
+  return {
+    visits: 0,
+    clicks: 0,
+    downloads: 0,
+    blocked: 0,
+    firstVisitAt: null,
+    lastVisitAt: null,
+    lastVisitDevice: null,
+    lastClickAt: null,
+    lastClickDevice: null,
+    hesitant: false,
+  };
+}
+
+export const footprintRepository = {
+  async record(input: {
+    subjectType: "referral" | "candidate";
+    subjectId: string;
+    event: "visit" | "click" | "proceed" | "download" | "blocked";
+    device: string;
+    userAgent?: string;
+    meta?: Record<string, unknown> | null;
+  }): Promise<void> {
+    const db = getDb();
+    await db.insert(footprints).values({
+      subjectType: input.subjectType,
+      subjectId: input.subjectId,
+      event: input.event,
+      device: input.device,
+      userAgent: input.userAgent ?? null,
+      meta: input.meta ?? null,
+    });
+  },
+
+  async listBySubject(
+    subjectType: "referral" | "candidate",
+    subjectId: string,
+    limit = 50,
+  ): Promise<Footprint[]> {
+    const db = getDb();
+    return db
+      .select()
+      .from(footprints)
+      .where(
+        and(
+          eq(footprints.subjectType, subjectType),
+          eq(footprints.subjectId, subjectId),
+        ),
+      )
+      .orderBy(desc(footprints.createdAt))
+      .limit(limit);
+  },
+
+  async summaryForReferrals(
+    referralIds: string[],
+  ): Promise<Map<string, FootprintSummary>> {
+    const db = getDb();
+    const map = new Map<string, FootprintSummary>();
+    if (referralIds.length === 0) return map;
+    for (const id of referralIds) {
+      map.set(id, emptyFootprintSummary());
+    }
+    const rows = await db
+      .select({
+        subjectId: footprints.subjectId,
+        event: footprints.event,
+        device: footprints.device,
+        createdAt: footprints.createdAt,
+      })
+      .from(footprints)
+      .where(
+        and(
+          eq(footprints.subjectType, "referral"),
+          inArray(footprints.subjectId, referralIds),
+        ),
+      )
+      .orderBy(asc(footprints.createdAt));
+    for (const row of rows) {
+      const s = map.get(row.subjectId);
+      if (!s) continue;
+      if (row.event === "visit") {
+        s.visits++;
+        if (!s.firstVisitAt || row.createdAt < s.firstVisitAt) {
+          s.firstVisitAt = row.createdAt;
+        }
+        if (!s.lastVisitAt || row.createdAt >= s.lastVisitAt) {
+          s.lastVisitAt = row.createdAt;
+          s.lastVisitDevice = row.device;
+        }
+      } else if (row.event === "click") {
+        s.clicks++;
+        if (!s.lastClickAt || row.createdAt >= s.lastClickAt) {
+          s.lastClickAt = row.createdAt;
+          s.lastClickDevice = row.device;
+        }
+      } else if (row.event === "download") {
+        s.downloads++;
+      } else if (row.event === "blocked") {
+        s.blocked++;
+      }
+    }
+    for (const s of map.values()) {
+      s.hesitant = s.visits > 0 && s.clicks === 0;
+    }
+    return map;
+  },
+
+  async summaryForApplications(
+    applicationIds: string[],
+  ): Promise<Map<string, FootprintSummary>> {
+    const db = getDb();
+    const map = new Map<string, FootprintSummary>();
+    if (applicationIds.length === 0) return map;
+    for (const id of applicationIds) {
+      map.set(id, emptyFootprintSummary());
+    }
+    const rows = await db
+      .select({
+        subjectId: footprints.subjectId,
+        event: footprints.event,
+        device: footprints.device,
+        createdAt: footprints.createdAt,
+      })
+      .from(footprints)
+      .where(
+        and(
+          eq(footprints.subjectType, "candidate"),
+          inArray(footprints.subjectId, applicationIds),
+        ),
+      )
+      .orderBy(asc(footprints.createdAt));
+    for (const row of rows) {
+      const s = map.get(row.subjectId);
+      if (!s) continue;
+      if (row.event === "visit") {
+        s.visits++;
+        if (!s.firstVisitAt || row.createdAt < s.firstVisitAt) {
+          s.firstVisitAt = row.createdAt;
+        }
+        if (!s.lastVisitAt || row.createdAt >= s.lastVisitAt) {
+          s.lastVisitAt = row.createdAt;
+          s.lastVisitDevice = row.device;
+        }
+      } else if (row.event === "proceed") {
+        s.clicks++;
+        if (!s.lastClickAt || row.createdAt >= s.lastClickAt) {
+          s.lastClickAt = row.createdAt;
+          s.lastClickDevice = row.device;
+        }
+      } else if (row.event === "download") {
+        s.downloads++;
+      } else if (row.event === "blocked") {
+        s.blocked++;
+      }
+    }
+    for (const s of map.values()) {
+      s.hesitant = s.visits > 0 && s.clicks === 0;
+    }
+    return map;
+  },
+
+  async findByEmailsForReferrals(
+    emails: string[],
+  ): Promise<Map<string, { id: string }>> {
+    const db = getDb();
+    const map = new Map<string, { id: string }>();
+    if (emails.length === 0) return map;
+    const rows = await db
+      .select({ email: referrals.email, id: referrals.id })
+      .from(referrals)
+      .where(
+        and(
+          isNotNull(referrals.email),
+          inArray(
+            referrals.email,
+            emails.map((e) => e.toLowerCase()),
+          ),
+        ),
+      );
+    for (const row of rows) {
+      if (row.email) map.set(row.email.toLowerCase(), { id: row.id });
+    }
+    return map;
+  },
+};
+
+export const activityRepository = {
+  async record(input: CreateActivityInput): Promise<Activity | undefined> {
+    const db = getDb();
+    const [result] = await db
+      .insert(activities)
+      .values({
+        actor: input.actor,
+        action: input.action,
+        targetType: input.targetType ?? null,
+        targetId: input.targetId ?? null,
+        targetEmail: input.targetEmail ?? null,
+        detail: input.detail ?? null,
+        status: input.status ?? "ok",
+        error: input.error ?? null,
+      })
+      .returning();
+    return result;
+  },
+
+  async list(
+    opts: {
+      limit?: number;
+      action?: string;
+      email?: string;
+    } = {},
+  ): Promise<Activity[]> {
+    const db = getDb();
+    const conditions = [];
+    if (opts.action) conditions.push(eq(activities.action, opts.action));
+    if (opts.email) conditions.push(eq(activities.targetEmail, opts.email));
+    const whereClause = conditions.length ? and(...conditions) : undefined;
+    return db
+      .select()
+      .from(activities)
+      .where(whereClause)
+      .orderBy(desc(activities.createdAt))
+      .limit(opts.limit ?? 100);
+  },
+
+  async count(opts: { action?: string } = {}): Promise<number> {
+    const db = getDb();
+    const conditions = [];
+    if (opts.action) conditions.push(eq(activities.action, opts.action));
+    const whereClause = conditions.length ? and(...conditions) : undefined;
+    const rows = await db
+      .select({ n: drizzleCount() })
+      .from(activities)
+      .where(whereClause);
+    return rows[0]?.n ?? 0;
   },
 };

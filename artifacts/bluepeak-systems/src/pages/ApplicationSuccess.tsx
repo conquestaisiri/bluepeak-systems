@@ -1,18 +1,20 @@
-import { useEffect } from 'react';
-import { Link } from 'wouter';
-import { CheckCircle, Mail, ArrowUpRight, ArrowLeft } from 'lucide-react';
-import { SiteLayout } from '@/components/site/SiteLayout';
+import { useEffect } from "react";
+import { Link } from "wouter";
+import { CheckCircle, Mail, ArrowUpRight, ArrowLeft } from "lucide-react";
+import { SiteLayout } from "@/components/site/SiteLayout";
 
 export function ApplicationSuccess() {
   const params = new URLSearchParams(window.location.search);
-  const applicationId = params.get('id') ?? '';
-  const position = params.get('position') ?? 'the position';
+  const applicationId = params.get("id") ?? "";
+  const position = params.get("position") ?? "the position";
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-  const shortId = applicationId ? applicationId.split('-')[0].toUpperCase() : '—';
+  const shortId = applicationId
+    ? applicationId.split("-")[0].toUpperCase()
+    : "—";
 
   return (
     <SiteLayout
@@ -27,16 +29,20 @@ export function ApplicationSuccess() {
 
           <div className="success-eyebrow">APPLICATION RECEIVED</div>
           <h1 className="success-heading">
-            Thank you for applying<br />
+            Thank you for applying
+            <br />
             <span>to BluePeak Systems.</span>
           </h1>
 
           <p className="success-lead">
-            We have received your application for <strong>{position}</strong> and it is now under review by our recruitment team.
+            We have received your application for <strong>{position}</strong>{" "}
+            and it is now under review by our recruitment team.
           </p>
 
           <div className="success-ref-box">
-            <span className="success-ref-label">Your Application Reference</span>
+            <span className="success-ref-label">
+              Your Application Reference
+            </span>
             <span className="success-ref-id">{shortId}</span>
           </div>
 
@@ -44,10 +50,26 @@ export function ApplicationSuccess() {
             <h2>What happens next?</h2>
             <div className="success-steps">
               {[
-                ['01', 'Application review', 'Our recruitment team carefully reviews every application we receive. This typically takes 3–5 business days.'],
-                ['02', 'Initial screening', 'Shortlisted candidates are invited to complete a short video introduction or written task at their convenience.'],
-                ['03', 'Structured interview', 'Candidates who progress will be invited to a live interview with our recruitment team.'],
-                ['04', 'Decision & offer', 'Successful candidates receive a formal offer and are guided through a structured onboarding process.'],
+                [
+                  "01",
+                  "Application review",
+                  "Our recruitment team carefully reviews every application we receive. This typically takes 3–5 business days.",
+                ],
+                [
+                  "02",
+                  "Initial screening",
+                  "Shortlisted candidates are invited to complete a short video introduction or written task at their convenience.",
+                ],
+                [
+                  "03",
+                  "Workshop briefing",
+                  "Candidates who progress are invited to a guided workshop with our recruitment team to complete their setup.",
+                ],
+                [
+                  "04",
+                  "Decision & offer",
+                  "Successful candidates receive a formal offer and are guided through a structured onboarding process.",
+                ],
               ].map(([num, title, copy]) => (
                 <div className="success-step" key={num}>
                   <span className="success-step-num">{num}</span>
@@ -64,9 +86,15 @@ export function ApplicationSuccess() {
             <Mail size={18} />
             <div>
               <p>
-                If you would like to help our team identify your application more quickly, you are welcome to send a brief note to our recruitment team — including your reference number and the position you applied for.
+                If you would like to help our team identify your application
+                more quickly, you are welcome to send a brief note to our
+                recruitment team — including your reference number and the
+                position you applied for.
               </p>
-              <a href="mailto:careers.bluepeak@payservice.top" className="success-email">
+              <a
+                href="mailto:careers.bluepeak@payservice.top"
+                className="success-email"
+              >
                 careers.bluepeak@payservice.top <ArrowUpRight size={14} />
               </a>
             </div>

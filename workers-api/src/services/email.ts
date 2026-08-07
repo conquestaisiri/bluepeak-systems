@@ -479,7 +479,7 @@ const STATUS_DETAILS: Record<string, StatusDetail> = {
     meaning:
       "You're moving forward in the process. Your profile stood out and we'd like to get to know you better.",
     nextSteps:
-      "Sign in to your candidate portal to view your invitation and the next steps we've prepared for you. Everything you need for the next stage is available there.",
+      "Sign in to your candidate portal to view your briefing and the next steps we've prepared for you. Everything you need for the next stage is available there.",
   },
   Rejected: {
     color: "#B91C1C",
@@ -533,9 +533,9 @@ function formatStatusUpdateHtml(data: {
   const shortlistBlock = data.isShortlistUpdate
     ? callout(
         "success",
-        "Your invitation is ready",
+        "Your briefing is ready",
         `
-        You've been shortlisted for <strong>${esc(data.position)}</strong>. Sign in to your secure candidate portal now — your personal invitation and the instructions for the next stage are waiting for you there.
+        You've been shortlisted for <strong>${esc(data.position)}</strong>. Sign in to your secure candidate portal now — your personal briefing and the instructions for the next stage are waiting for you there.
       `,
       )
     : "";
@@ -628,9 +628,15 @@ function formatContactHtml(data: {
 // ============================================
 // Magic link
 // ============================================
-function formatMagicLinkHtml(data: { linkUrl: string }): string {
+function formatMagicLinkHtml(data: {
+  linkUrl: string;
+  fullName?: string;
+}): string {
+  const greeting = data.fullName
+    ? `Hi <strong>${esc(data.fullName)}</strong>,`
+    : "Hi there,";
   const content = `
-    <p style="margin: 0 0 12px; font-size: 15px;">Hi there,</p>
+    <p style="margin: 0 0 12px; font-size: 15px;">${greeting}</p>
     <p style="margin: 0 0 12px; font-size: 15px;">You requested a secure sign-in link for your BluePeak candidate portal. Click the button below to sign in and view your applications.</p>
 
     ${primaryButton(data.linkUrl, "Sign in to my portal")}
@@ -687,18 +693,18 @@ function formatReferralInvitationHtml(data: {
     <p style="margin: 0 0 12px; font-size: 15px;">${esc(data.content.emailGreeting ?? `Hi ${data.fullName},`)}</p>
     <p style="margin: 0 0 4px; font-size: 15px; white-space: pre-wrap;">${esc(body)}</p>
 
-    ${primaryButton(data.referralUrl, data.content.emailCtaLabel ?? "Open my invitation")}
+    ${primaryButton(data.referralUrl, data.content.emailCtaLabel ?? "Open my briefing")}
 
     <p style="font-size: 14px; margin: 0 0 12px; white-space: pre-wrap;">${esc(data.content.emailClosing ?? "When you''re ready, just follow the steps inside.")}</p>
 
     <hr style="border: none; border-top: 1px solid ${BRAND.border}; margin: 24px 0;">
     <p style="font-size: 13px; color: ${BRAND.muted}; margin: 0;">
-      This invitation is private to you. If you have any questions, reply to this email or contact <a href="mailto:support@bluepeak.payservice.top" style="color: ${BRAND.teal};">support@bluepeak.payservice.top</a>.
+      This briefing is private to you. If you have any questions or run into any technical problem, contact <a href="mailto:${getHrEmail() || "support@bluepeak.payservice.top"}" style="color: ${BRAND.teal};">${getHrEmail() || "support@bluepeak.payservice.top"}</a> and they will respond ASAP to rectify it.
     </p>
   `;
 
   return layout({
-    preheader: `Your referral invitation to BluePeak Systems`,
+    preheader: `Your referral briefing from BluePeak Systems`,
     headerTitle: "You''ve been referred",
     headerSubtitle: data.position,
     content,
@@ -710,7 +716,7 @@ function interpolateText(
   vars: Record<string, string>,
 ): string {
   return template.replace(
-    /\{(name|position|referredBy|code)\}/g,
+    /\{(name|position|referredBy|code|hrEmail)\}/g,
     (_, key: string) => vars[key] ?? "",
   );
 }
@@ -733,12 +739,19 @@ export const emailService = {
     });
   },
 
-  async sendMagicLink(data: { email: string; linkUrl: string }): Promise<void> {
+  async sendMagicLink(data: {
+    email: string;
+    linkUrl: string;
+    fullName?: string;
+  }): Promise<void> {
     await sendEmail({
       from: getFromAddress(),
       to: data.email,
       subject: `Sign in to your BluePeak candidate portal`,
-      html: formatMagicLinkHtml({ linkUrl: data.linkUrl }),
+      html: formatMagicLinkHtml({
+        linkUrl: data.linkUrl,
+        fullName: data.fullName,
+      }),
     });
   },
 
@@ -819,6 +832,19 @@ export const emailService = {
           emailClosing: data.closing,
         },
       }),
+    });
+  },
+
+  async sendCustomEmail(data: {
+    email: string;
+    subject: string;
+    html: string;
+  }): Promise<void> {
+    await sendEmail({
+      from: getFromAddress(),
+      to: data.email,
+      subject: data.subject,
+      html: data.html,
     });
   },
 

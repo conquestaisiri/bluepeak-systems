@@ -234,18 +234,15 @@ export function ImportModal({
 }) {
   const [raw, setRaw] = useState("");
   const [fileName, setFileName] = useState("");
-  const [referredBy, setReferredBy] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
-  const [meetingUrl, setMeetingUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<ImportRow[]>([]);
   const [detected, setDetected] = useState<{
     foundName: boolean;
     foundEmail: boolean;
-    foundReferrer: boolean;
-    foundJob: boolean;
-    foundLink: boolean;
+    foundPhone: boolean;
+    foundAddress: boolean;
+    foundZip: boolean;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -303,9 +300,9 @@ export function ImportModal({
       setDetected({
         foundName: map.fullName >= 0,
         foundEmail: map.email >= 0,
-        foundReferrer: (map.referredBy ?? -1) >= 0,
-        foundJob: (map.jobTitle ?? -1) >= 0,
-        foundLink: (map.meetingUrl ?? -1) >= 0,
+        foundPhone: (map.phone ?? -1) >= 0,
+        foundAddress: (map.address ?? -1) >= 0,
+        foundZip: (map.zipCode ?? -1) >= 0,
       });
       setRaw("");
       setPreview(parseGrid(rows, map));
@@ -328,19 +325,12 @@ export function ImportModal({
     const rows = preview.map((r) => ({
       fullName: r.fullName,
       email: r.email,
-      referredBy: r.referredBy ?? (referredBy.trim() || undefined),
-      jobTitle: r.jobTitle ?? (jobTitle.trim() || undefined),
-      meetingUrl: r.meetingUrl ?? (meetingUrl.trim() || undefined),
       phone: r.phone,
-      city: r.city,
-      country: r.country,
       address: r.address,
       zipCode: r.zipCode,
-      source: r.source,
-      notes: r.notes,
     }));
     try {
-      const res = await fetch(`${API_BASE}/api/admin/referrals/import`, {
+      const res = await fetch(`${API_BASE}/api/admin/contacts/import`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -369,7 +359,7 @@ export function ImportModal({
       >
         <div className="modal-header">
           <div>
-            <h2>Import referrals</h2>
+            <h2>Import contacts</h2>
             <span className="modal-position">{existingCount} existing</span>
           </div>
           <button onClick={onClose} className="modal-close" aria-label="Close">
@@ -431,15 +421,9 @@ export function ImportModal({
                 <div className="import-map-badges">
                   <MappedBadge label="Full name" found={detected.foundName} />
                   <MappedBadge label="Email" found={detected.foundEmail} />
-                  <MappedBadge
-                    label="Referrer"
-                    found={detected.foundReferrer}
-                  />
-                  <MappedBadge label="Job" found={detected.foundJob} />
-                  <MappedBadge
-                    label="Meeting link"
-                    found={detected.foundLink}
-                  />
+                  <MappedBadge label="Phone" found={detected.foundPhone} />
+                  <MappedBadge label="Address" found={detected.foundAddress} />
+                  <MappedBadge label="Zip code" found={detected.foundZip} />
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
                   Rows with the wrong order are corrected automatically.
@@ -456,8 +440,8 @@ export function ImportModal({
               <p className="text-xs text-slate-500 mb-2">
                 One person per line, tab- or comma-separated:{" "}
                 <code className="text-slate-700">
-                  Full Name, Email, Referrer (optional), Job (optional), Meeting
-                  link (optional)
+                  Full Name, Email, Phone (optional), Address (optional), Zip
+                  code (optional)
                 </code>
               </p>
               <textarea
@@ -465,39 +449,9 @@ export function ImportModal({
                 onChange={(e) => updateRaw(e.target.value)}
                 rows={6}
                 placeholder={
-                  "Jane Smith\tjane@email.com\t\tVirtual Assistant\t\nJohn Doe\tjohn@email.com"
+                  "Jane Smith\tjane@email.com\t+1 555 000 0000\nJohn Doe\tjohn@email.com"
                 }
                 className="filter-input admin-input font-mono text-sm"
-              />
-            </div>
-
-            <div className="mb-4 grid grid-cols-2 gap-3">
-              <div>
-                <label className="admin-field-label">Default referrer</label>
-                <input
-                  value={referredBy}
-                  onChange={(e) => setReferredBy(e.target.value)}
-                  className="filter-input admin-input"
-                  placeholder="Optional"
-                />
-              </div>
-              <div>
-                <label className="admin-field-label">Default job</label>
-                <input
-                  value={jobTitle}
-                  onChange={(e) => setJobTitle(e.target.value)}
-                  className="filter-input admin-input"
-                  placeholder="Optional"
-                />
-              </div>
-            </div>
-            <div className="mb-4">
-              <label className="admin-field-label">Default meeting link</label>
-              <input
-                value={meetingUrl}
-                onChange={(e) => setMeetingUrl(e.target.value)}
-                className="filter-input admin-input"
-                placeholder="Optional"
               />
             </div>
 

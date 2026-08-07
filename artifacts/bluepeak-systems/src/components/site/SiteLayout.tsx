@@ -1,17 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
-import {
-  ArrowUp,
-  ArrowUpRight,
-  ChevronRight,
-  Linkedin,
-  Menu,
-  X,
-} from "lucide-react";
+import { ArrowUp, ArrowUpRight, ChevronRight, Menu, X } from "lucide-react";
+import { SiteFooter } from "@/components/site/SiteFooter";
 
 const NAV_ITEMS = [
   ["About", "/#about"],
-  ["Solutions", "/#work"],
+  ["What we do", "/#work"],
   ["How it works", "/#process"],
   ["Careers", "/careers"],
   ["Contact", "/#contact"],
@@ -144,43 +138,7 @@ export function SiteLayout({ children, title, description }: SiteLayoutProps) {
 
       <main style={{ paddingTop: "64px" }}>{children}</main>
 
-      <footer className="footer">
-        <div className="container footer-top">
-          <Link
-            href="/"
-            className="brand footer-brand"
-            data-testid="button-footer-brand"
-          >
-            <img
-              src="/bluepeak-mark.svg"
-              alt="BluePeak Systems"
-              className="brand-logo"
-            />
-          </Link>
-          <p>Workforce solutions and hiring—handled for you, for any role.</p>
-          <div className="footer-links">
-            <a href="/#about">About</a>
-            <a href="/#work">What we do</a>
-            <a href="/careers">Careers</a>
-            <a href="/#contact">Contact</a>
-          </div>
-          <a
-            href="https://www.linkedin.com"
-            target="_blank"
-            rel="noreferrer"
-            className="social-link"
-            aria-label="BluePeak on LinkedIn"
-          >
-            <Linkedin size={17} />
-          </a>
-        </div>
-        <div className="container footer-bottom">
-          <span>
-            © {new Date().getFullYear()} BluePeak Systems. All rights reserved.
-          </span>
-          <span>Building workforces in 28+ countries.</span>
-        </div>
-      </footer>
+      <SiteFooter />
 
       {showTop && (
         <button

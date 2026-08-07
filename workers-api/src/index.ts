@@ -17,6 +17,15 @@ import {
 import { initEnv, getEnv } from "./config";
 import type { Env } from "./env";
 import type { ApplicationStatus } from "./schema";
+import {
+  applicationRepository,
+  contactRepository,
+  referralRepository,
+  footprintRepository,
+  activityRepository,
+  type FootprintSummary,
+} from "./repositories";
+import type { Application } from "./schema";
 
 type Variables = {
   user: { id: string; email: string; role: string };
@@ -212,8 +221,14 @@ const applicationSchema = z.object({
   country: z.string().min(1),
   city: z.string().min(1),
   timezone: z.string().min(1),
-  linkedinUrl: z.string().url().optional().nullable(),
-  portfolioUrl: z.string().url().optional().nullable(),
+  linkedinUrl: z
+    .union([z.string().url(), z.literal("")])
+    .optional()
+    .nullable(),
+  portfolioUrl: z
+    .union([z.string().url(), z.literal("")])
+    .optional()
+    .nullable(),
   yearsExperience: z.string().min(1),
   education: z.string().min(1),
   englishProficiency: z.string().min(1),
@@ -347,6 +362,26 @@ const magicLinkSchema = z.object({
   turnstileToken: z.string().optional(),
 });
 
+async function findPersonName(email: string): Promise<string | undefined> {
+  try {
+    const contact = await contactRepository.findByEmail(email);
+    if (contact?.firstName) return contact.firstName;
+    if (contact?.fullName) return contact.fullName;
+
+    const apps = await applicationRepository.findByEmail(email);
+    if (apps[0]?.fullName) return apps[0].fullName;
+
+    const referral = await referralRepository.findByEmail(email);
+    if (referral?.fullName) return referral.fullName;
+  } catch (err) {
+    console.warn(
+      { err, email },
+      "Name lookup failed, sending unpersonalized email",
+    );
+  }
+  return undefined;
+}
+
 app.post("/api/auth/magic-link", magicLinkLimiter, async (c) => {
   try {
     const parsed = magicLinkSchema.safeParse(await c.req.json());
@@ -380,7 +415,9 @@ app.post("/api/auth/magic-link", magicLinkLimiter, async (c) => {
     const token = await authService.generateMagicToken(normalized);
     const linkUrl = authService.buildMagicLinkUrl(token);
 
-    await emailService.sendMagicLink({ email: normalized, linkUrl });
+    const fullName = await findPersonName(normalized);
+
+    await emailService.sendMagicLink({ email: normalized, linkUrl, fullName });
 
     console.log({ email: normalized }, "Magic link sent");
     return c.json({
@@ -615,8 +652,26 @@ app.get("/api/admin/applications", adminAuth, async (c) => {
     );
     const status = c.req.query("status");
     const search = c.req.query("search");
+    const footprint = c.req.query("footprint");
 
     let applications = await applicationService.list();
+
+    const summaries = await footprintRepository.summaryForApplications(
+      applications.map((a) => a.id),
+    );
+    const enriched: (Application & { footprint: FootprintSummary | null })[] =
+      applications.map((a) => ({
+        ...a,
+        footprint: summaries.get(a.id) ?? null,
+      }));
+
+    if (footprint) {
+      applications = enriched.filter((a) =>
+        matchesFootprintFilter(a.footprint, footprint),
+      );
+    } else {
+      applications = enriched;
+    }
 
     if (status) {
       applications = applications.filter((a) => a.status === status);
@@ -901,6 +956,48 @@ app.get("/api/candidate/applications/:id/resume", candidateAuth, async (c) => {
   }
 });
 
+app.post("/api/candidate/footprint", candidateAuth, async (c) => {
+  try {
+    const user = c.get("user");
+    const body = await c.req.json().catch(() => ({}));
+    const applicationId =
+      typeof body?.applicationId === "string" ? body.applicationId : "";
+    const allowedEvents = ["visit", "proceed", "download", "blocked"] as const;
+    const event = allowedEvents.includes(body?.event)
+      ? (body.event as (typeof allowedEvents)[number])
+      : "visit";
+    if (!applicationId) {
+      return c.json({ error: "applicationId is required" }, 400);
+    }
+    const application = await applicationService.getById(applicationId);
+    if (!application) {
+      return c.json({ error: "Application not found" }, 404);
+    }
+    if (application.email.toLowerCase() !== user.email.toLowerCase()) {
+      return c.json(
+        { error: "You do not have access to this application" },
+        403,
+      );
+    }
+    const clientDevice = typeof body?.device === "string" ? body.device : "";
+    const device = /^(mobile|laptop)$/i.test(clientDevice)
+      ? clientDevice.toLowerCase()
+      : detectDeviceType(c.req.header("user-agent") || "");
+    await footprintRepository.record({
+      subjectType: "candidate",
+      subjectId: applicationId,
+      event,
+      device,
+      userAgent: c.req.header("user-agent") ?? undefined,
+      meta: sanitizeMeta(body?.meta),
+    });
+    return c.json({ success: true, device });
+  } catch (err) {
+    console.error({ err }, "Failed to record candidate footprint");
+    return c.json({ error: "Failed to record footprint" }, 500);
+  }
+});
+
 // ============================================
 // REFERRALS - Public
 // ============================================
@@ -921,13 +1018,39 @@ app.get("/api/referrals/:code", async (c) => {
         meetingUrl: referral.meetingUrl,
         status: referral.status,
       },
-      content,
+      content: {
+        ...content,
+        hrEmail: getEnv().HR_EMAIL ?? "support@bluepeak.payservice.top",
+      },
     });
   } catch (err) {
     console.error(
       `Failed to load referral: ${err instanceof Error ? err.message : String(err)}`,
     );
     return c.json({ error: "Failed to load referral" }, 500);
+  }
+});
+
+app.post("/api/referrals/:code/visit", referralClickLimiter, async (c) => {
+  try {
+    await ensureReferralSchemaOnce();
+    const body = await c.req.json().catch(() => ({}));
+    const clientDevice = typeof body?.device === "string" ? body.device : "";
+    const meta = sanitizeMeta(body?.meta);
+    const device = /^(mobile|laptop)$/i.test(clientDevice)
+      ? clientDevice.toLowerCase()
+      : meta?.verdict === "mobile"
+        ? "mobile"
+        : detectDeviceType(c.req.header("user-agent") || "");
+    const recorded = await referralService.recordVisit(
+      c.req.param("code"),
+      device,
+      meta,
+    );
+    return c.json({ success: true, device, recorded });
+  } catch (err) {
+    console.error({ err }, "Failed to record referral visit");
+    return c.json({ error: "Failed to record visit" }, 500);
   }
 });
 
@@ -943,17 +1066,83 @@ function detectDeviceType(userAgent: string): "mobile" | "laptop" {
   return mobile ? "mobile" : "laptop";
 }
 
+// Accepts only flat objects of primitive values (strings/numbers/booleans) so
+// clients can send device-signal breakdowns without injecting arbitrary data.
+function sanitizeMeta(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (Object.keys(out).length >= 40) break;
+    if (typeof v === "string") {
+      if (v.length <= 200) out[k] = v;
+    } else if (typeof v === "number" || typeof v === "boolean") {
+      out[k] = v;
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function matchesFootprintFilter(
+  footprint: { visits: number; clicks: number; hesitant: boolean } | null,
+  filter: string,
+): boolean {
+  if (!footprint) {
+    return (
+      filter === "not_visited" ||
+      filter === "not_clicked" ||
+      filter === "not_proceeded"
+    );
+  }
+  switch (filter) {
+    case "visited":
+      return footprint.visits > 0;
+    case "not_visited":
+      return footprint.visits === 0;
+    case "clicked":
+    case "proceeded":
+      return footprint.clicks > 0;
+    case "not_clicked":
+    case "not_proceeded":
+      return footprint.clicks === 0;
+    case "hesitant":
+      return footprint.hesitant;
+    default:
+      return true;
+  }
+}
+
 app.post("/api/referrals/:code/click", referralClickLimiter, async (c) => {
   try {
     await ensureReferralSchemaOnce();
-    const device = detectDeviceType(c.req.header("user-agent") || "");
+    const body = await c.req.json().catch(() => ({}));
+    const meta = sanitizeMeta(body?.meta);
+    const metaMobile = meta?.verdict === "mobile";
+    const device = metaMobile
+      ? "mobile"
+      : detectDeviceType(c.req.header("user-agent") || "");
 
     const referral = await referralService.recordClick(
       c.req.param("code"),
       device,
+      meta,
     );
     if (!referral) {
       return c.json({ error: "Referral not found" }, 404);
+    }
+
+    // A "click" from a mobile device means the user tried to proceed and was
+    // blocked — record that attempt so the admin can follow up. The client
+    // guard's verdict (meta) is trusted over the UA because desktop-site mode
+    // spoofs the UA header.
+    if (device === "mobile") {
+      await footprintRepository.record({
+        subjectType: "referral",
+        subjectId: referral.id,
+        event: "blocked",
+        device,
+        userAgent: c.req.header("user-agent") ?? undefined,
+        meta: { ...(meta ?? {}), reason: "mobile-device-blocked" },
+      });
     }
 
     const clickedAt = referral.lastClickedAt ?? new Date();
@@ -984,6 +1173,210 @@ app.post("/api/referrals/:code/click", referralClickLimiter, async (c) => {
   }
 });
 
+// Fire-and-forget audit logging for admin actions. Never throws into the
+// caller: a failed audit row is logged and the main action still succeeded.
+function logActivity(
+  c: any,
+  input: Omit<Parameters<typeof activityRepository.record>[0], "actor">,
+): void {
+  const actor =
+    (c.get("user") as { email?: string } | undefined)?.email ?? "admin";
+  activityRepository
+    .record({ ...input, actor })
+    .catch((err) => console.error({ err }, "Failed to log activity"));
+}
+
+// ============================================
+// MAIL & ACTIVITY (ADMIN)
+// ============================================
+const mailSendSchema = z.object({
+  recipients: z
+    .array(
+      z.object({
+        email: z.string().email(),
+        fullName: z.string().optional(),
+      }),
+    )
+    .min(1)
+    .max(100),
+  mode: z.enum(["referral", "custom"]),
+  referredBy: z.string().optional(),
+  jobTitle: z.string().optional(),
+  subject: z.string().optional(),
+  body: z.string().optional(),
+});
+
+function formatCustomMailHtml(subject: string, body: string): string {
+  const safeSubject = escHtml(subject);
+  const paragraphs = body
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map(
+      (line) =>
+        `<p style="margin:0 0 14px;color:#1F2937;font-size:15px;line-height:1.7;">${escHtml(line)}</p>`,
+    )
+    .join("");
+  return `<div style="background:#F7F5F0;padding:32px 16px;">
+  <div style="max-width:560px;margin:0 auto;background:#FFFFFF;border-radius:14px;overflow:hidden;border:1px solid #E5E7EB;">
+    <div style="background:#0B1F33;padding:22px 28px;">
+      <span style="color:#5FDCC4;font-weight:700;letter-spacing:0.4px;font-size:16px;">BLUEPEAK SYSTEMS</span>
+    </div>
+    <div style="padding:28px;">
+      <h2 style="margin:0 0 16px;color:#0B1F33;font-size:20px;">${safeSubject}</h2>
+      ${paragraphs}
+      <p style="margin:20px 0 0;color:#6B7280;font-size:12.5px;line-height:1.6;">You received this message from BluePeak Systems. If you have any questions, contact us at <a href="mailto:${escHtml(getEnv().HR_EMAIL ?? "support@bluepeak.payservice.top")}" style="color:#1D4ED8;">${escHtml(getEnv().HR_EMAIL ?? "support@bluepeak.payservice.top")}</a>.</p>
+    </div>
+  </div>
+</div>`;
+}
+
+function escHtml(value: string): string {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+app.post("/api/admin/mail/send", adminAuth, async (c) => {
+  try {
+    await ensureReferralSchemaOnce();
+    const parsed = mailSendSchema.safeParse(await c.req.json());
+    if (!parsed.success) {
+      return c.json(
+        { error: "Invalid payload: valid recipient emails are required" },
+        400,
+      );
+    }
+    const { recipients, mode, referredBy, jobTitle, subject, body } =
+      parsed.data;
+    const actor = (c.get("user") as { email?: string })?.email ?? "admin";
+
+    let sentCount = 0;
+    let createdCount = 0;
+    const failed: Array<{ email: string; error: string }> = [];
+    const results: Array<{
+      email: string;
+      created?: boolean;
+      sent: boolean;
+      code?: string | null;
+      error?: string;
+    }> = [];
+
+    for (const recipient of recipients) {
+      const email = recipient.email.trim().toLowerCase();
+      try {
+        if (mode === "referral") {
+          const out = await referralService.sendInvitationToRecipient({
+            email,
+            fullName: recipient.fullName,
+            referredBy,
+            jobTitle,
+          });
+          if (out.created) createdCount++;
+          if (out.sent) {
+            sentCount++;
+            results.push({
+              email,
+              created: out.created,
+              sent: true,
+              code: out.referral?.referralCode ?? null,
+            });
+          } else {
+            failed.push({ email, error: out.error ?? "Send failed" });
+            results.push({
+              email,
+              created: out.created,
+              sent: false,
+              error: out.error ?? "Send failed",
+            });
+          }
+          await activityRepository.record({
+            actor,
+            action: "mail.referral_sent",
+            targetType: "referral",
+            targetId: out.referral?.id,
+            targetEmail: email,
+            detail: {
+              code: out.referral?.referralCode ?? null,
+              created: out.created,
+              referredBy: referredBy?.trim() || null,
+              jobTitle: jobTitle?.trim() || null,
+            },
+            status: out.sent ? "ok" : "failed",
+            error: out.sent ? null : (out.error ?? "Send failed"),
+          });
+        } else {
+          const cleanSubject = (subject ?? "").trim();
+          const cleanBody = (body ?? "").trim();
+          if (!cleanSubject) throw new Error("Subject is required");
+          if (!cleanBody) throw new Error("Message body is required");
+          await emailService.sendCustomEmail({
+            email,
+            subject: cleanSubject,
+            html: formatCustomMailHtml(cleanSubject, cleanBody),
+          });
+          sentCount++;
+          results.push({ email, sent: true });
+          await activityRepository.record({
+            actor,
+            action: "mail.custom_sent",
+            targetType: "email",
+            targetEmail: email,
+            detail: { subject: cleanSubject },
+            status: "ok",
+          });
+        }
+      } catch (err) {
+        const message = (err as Error).message || "Send failed";
+        failed.push({ email, error: message });
+        results.push({ email, sent: false, error: message });
+        await activityRepository
+          .record({
+            actor,
+            action:
+              mode === "referral" ? "mail.referral_sent" : "mail.custom_sent",
+            targetType: mode === "referral" ? "referral" : "email",
+            targetEmail: email,
+            detail: { mode },
+            status: "failed",
+            error: message,
+          })
+          .catch(() => {});
+      }
+    }
+
+    return c.json({
+      sent: sentCount,
+      created: createdCount,
+      failed,
+      results,
+    });
+  } catch (err) {
+    console.error({ err }, "Mail send failed");
+    return c.json({ error: "Mail send failed" }, 500);
+  }
+});
+
+app.get("/api/admin/activities", adminAuth, async (c) => {
+  try {
+    await ensureReferralSchemaOnce();
+    const limit = Math.min(
+      200,
+      Math.max(1, parseInt(c.req.query("limit") || "50")),
+    );
+    const action = c.req.query("action") || undefined;
+    const email = c.req.query("email") || undefined;
+    const events = await activityRepository.list({ limit, action, email });
+    const total = await activityRepository.count({ action });
+    return c.json({ events, total });
+  } catch (err) {
+    console.error({ err }, "Failed to fetch activities");
+    return c.json({ error: "Failed to fetch activities" }, 500);
+  }
+});
+
 // ============================================
 // REFERRALS (ADMIN)
 // ============================================
@@ -992,8 +1385,16 @@ app.get("/api/admin/referrals", adminAuth, async (c) => {
     await ensureReferralSchemaOnce();
     const status = c.req.query("status") || undefined;
     const search = c.req.query("search") || undefined;
-    const data = await referralService.list({ status, search });
-    return c.json(data);
+    const footprint = c.req.query("footprint") || undefined;
+    const data = await referralService.list({ status, search, footprint });
+    const summaries = await footprintRepository.summaryForReferrals(
+      data.referrals.map((r) => r.id),
+    );
+    const enriched = data.referrals.map((r) => ({
+      ...r,
+      footprint: summaries.get(r.id) ?? null,
+    }));
+    return c.json({ ...data, referrals: enriched });
   } catch (err) {
     console.error({ err }, "Failed to fetch referrals");
     return c.json({ error: "Failed to fetch referrals" }, 500);
@@ -1028,6 +1429,11 @@ app.put("/api/admin/referrals/content", adminAuth, async (c) => {
       return c.json({ error: "Invalid content" }, 400);
     }
     const saved = await referralService.setContent(content);
+    logActivity(c, {
+      action: "admin.content_saved",
+      targetType: "settings",
+      detail: { fields: Object.keys(content) },
+    });
     return c.json({ content: saved });
   } catch (err) {
     console.error({ err }, "Failed to save referral content");
@@ -1051,10 +1457,20 @@ app.post("/api/admin/referrals/content/apply", adminAuth, async (c) => {
 
     if (applyToAll || ids.length === 0) {
       await referralService.setContentOverridesAll(content);
+      logActivity(c, {
+        action: "admin.content_applied_all",
+        targetType: "referral",
+        detail: { fields: Object.keys(content) },
+      });
       return c.json({ applied: applyToAll ? "all" : "none" });
     }
 
     await referralService.setContentOverrides(ids, content);
+    logActivity(c, {
+      action: "admin.content_applied_selected",
+      targetType: "referral",
+      detail: { ids: ids.length, fields: Object.keys(content) },
+    });
     return c.json({ success: true, applied: ids.length });
   } catch (err) {
     console.error({ err }, "Failed to apply referral content");
@@ -1074,6 +1490,11 @@ app.post("/api/admin/referrals/content/reset", adminAuth, async (c) => {
       ? body.keys.filter((k: unknown) => typeof k === "string")
       : undefined;
     await referralService.clearContentOverrides(ids, keys);
+    logActivity(c, {
+      action: "admin.content_reset",
+      targetType: "referral",
+      detail: { ids: ids.length, keys: keys?.length ?? "all" },
+    });
     return c.json({ success: true, cleared: ids.length });
   } catch (err) {
     console.error({ err }, "Failed to clear referral content");
@@ -1099,6 +1520,13 @@ app.post("/api/admin/referrals", adminAuth, async (c) => {
       { referralId: referral.id, code: referral.referralCode },
       "Referral created",
     );
+    logActivity(c, {
+      action: "admin.referral_created",
+      targetType: "referral",
+      targetId: referral.id,
+      targetEmail: referral.email ?? undefined,
+      detail: { code: referral.referralCode },
+    });
     return c.json(
       { referral, link: publicReferralUrl(referral.referralCode) },
       201,
@@ -1124,6 +1552,14 @@ app.post("/api/admin/referrals/import", adminAuth, async (c) => {
       { created: result.created.length, skipped: result.skipped.length },
       "Referrals imported",
     );
+    logActivity(c, {
+      action: "admin.referrals_imported",
+      targetType: "referral",
+      detail: {
+        created: result.created.length,
+        skipped: result.skipped.length,
+      },
+    });
     return c.json(result, 201);
   } catch (err) {
     console.error({ err }, "Failed to import referrals");
@@ -1178,6 +1614,12 @@ app.patch("/api/admin/referrals/:id", adminAuth, async (c) => {
     if (!referral) {
       return c.json({ error: "Referral not found" }, 404);
     }
+    logActivity(c, {
+      action: "admin.referral_updated",
+      targetType: "referral",
+      targetId: referral.id,
+      targetEmail: referral.email ?? undefined,
+    });
     return c.json({ referral });
   } catch (err) {
     console.error({ err }, "Failed to update referral");
@@ -1196,6 +1638,15 @@ app.post("/api/admin/referrals/send", adminAuth, async (c) => {
       return c.json({ error: "Select at least one referral to send" }, 400);
     }
     const result = await referralService.sendToReferrals(ids, body?.count);
+    logActivity(c, {
+      action: "admin.referrals_sent",
+      targetType: "referral",
+      detail: {
+        sent: result.sent,
+        failed: (result.failed ?? []).length,
+      },
+      status: (result.failed ?? []).length ? "failed" : "ok",
+    });
     return c.json(result);
   } catch (err) {
     console.error({ err }, "Failed to send referrals");
@@ -1214,6 +1665,11 @@ app.put("/api/admin/referrals/limit", adminAuth, async (c) => {
       return c.json({ error: "A valid daily limit is required" }, 400);
     }
     const settings = await referralService.setDailySendLimit(limit);
+    logActivity(c, {
+      action: "admin.daily_limit_updated",
+      targetType: "settings",
+      detail: { limit },
+    });
     return c.json({ settings });
   } catch (err) {
     console.error({ err }, "Failed to update referral limit");
@@ -1227,10 +1683,199 @@ app.delete("/api/admin/referrals/:id", adminAuth, async (c) => {
     if (!deleted) {
       return c.json({ error: "Referral not found" }, 404);
     }
+    logActivity(c, {
+      action: "admin.referral_deleted",
+      targetType: "referral",
+      targetId: c.req.param("id"),
+    });
     return c.json({ success: true, message: "Referral deleted" });
   } catch (err) {
     console.error({ err }, "Failed to delete referral");
     return c.json({ error: "Failed to delete referral" }, 500);
+  }
+});
+
+// ============================================
+// CONTACTS (ADMIN)
+// ============================================
+app.get("/api/admin/footprints", adminAuth, async (c) => {
+  try {
+    const subjectType = c.req.query("subjectType");
+    const subjectId = c.req.query("subjectId");
+    if (!subjectType || !subjectId) {
+      return c.json({ error: "subjectType and subjectId are required" }, 400);
+    }
+    const type = subjectType === "candidate" ? "candidate" : "referral";
+    const events = await footprintRepository.listBySubject(
+      type,
+      subjectId,
+      100,
+    );
+    return c.json({ events });
+  } catch (err) {
+    console.error({ err }, "Failed to fetch footprint events");
+    return c.json({ error: "Failed to fetch footprint events" }, 500);
+  }
+});
+
+app.get("/api/admin/contacts", adminAuth, async (c) => {
+  try {
+    const page = Math.max(1, parseInt(c.req.query("page") || "1"));
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(c.req.query("limit") || "20")),
+    );
+    const search = c.req.query("search") || undefined;
+    const footprint = c.req.query("footprint") || undefined;
+
+    const total = await contactRepository.countAll({ search, footprint });
+    const contacts = await contactRepository.list({
+      search,
+      footprint,
+      from: (page - 1) * limit,
+      limit,
+    });
+
+    const emails = contacts
+      .map((contact) => contact.email)
+      .filter((e): e is string => Boolean(e));
+    const referralByEmail =
+      await footprintRepository.findByEmailsForReferrals(emails);
+    const referralIds = [...referralByEmail.values()].map((r) => r.id);
+    const summaries =
+      await footprintRepository.summaryForReferrals(referralIds);
+    const enriched = contacts.map((contact) => {
+      const ref = contact.email
+        ? referralByEmail.get(contact.email.toLowerCase())
+        : undefined;
+      return {
+        ...contact,
+        footprint: ref ? (summaries.get(ref.id) ?? null) : null,
+      };
+    });
+
+    return c.json({
+      contacts: enriched,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (err) {
+    console.error({ err }, "Failed to fetch contacts");
+    return c.json({ error: "Failed to retrieve contacts" }, 500);
+  }
+});
+
+app.delete("/api/admin/contacts/:id", adminAuth, async (c) => {
+  try {
+    const deleted = await contactRepository.delete(c.req.param("id"));
+    if (!deleted) {
+      return c.json({ error: "Contact not found" }, 404);
+    }
+    logActivity(c, {
+      action: "admin.contact_deleted",
+      targetType: "contact",
+      targetId: c.req.param("id"),
+    });
+    return c.json({ success: true, message: "Contact deleted" });
+  } catch (err) {
+    console.error({ err }, "Failed to delete contact");
+    return c.json({ error: "Failed to delete contact" }, 500);
+  }
+});
+
+app.post("/api/admin/contacts/delete-many", adminAuth, async (c) => {
+  try {
+    const body = await c.req.json();
+    const ids = Array.isArray(body?.ids)
+      ? body.ids.filter((id: unknown) => typeof id === "string")
+      : [];
+    if (!ids.length) {
+      return c.json({ error: "Select at least one contact to delete" }, 400);
+    }
+    const deleted = await contactRepository.deleteMany(ids);
+    logActivity(c, {
+      action: "admin.contacts_deleted",
+      targetType: "contact",
+      detail: { count: deleted },
+    });
+    return c.json({ success: true, deleted });
+  } catch (err) {
+    console.error({ err }, "Failed to delete contacts");
+    return c.json({ error: "Failed to delete contacts" }, 500);
+  }
+});
+
+app.post("/api/admin/contacts/import", adminAuth, async (c) => {
+  try {
+    const body = await c.req.json();
+    const rows = Array.isArray(body?.rows) ? body.rows : [];
+    if (!rows.length) {
+      return c.json({ error: "No rows to import" }, 400);
+    }
+    const result = await contactRepository.importMany(rows);
+    logActivity(c, {
+      action: "admin.contacts_imported",
+      targetType: "contact",
+      detail: {
+        created: result.created,
+        updated: result.updated,
+        skipped: result.skipped.length,
+      },
+    });
+    return c.json(result);
+  } catch (err) {
+    console.error({ err }, "Failed to import contacts");
+    return c.json({ error: "Failed to import contacts" }, 500);
+  }
+});
+
+// Clear ALL referrals (bulk data operation)
+app.delete("/api/admin/referrals", adminAuth, async (c) => {
+  try {
+    await ensureReferralSchemaOnce();
+    const deleted = await referralService.clearAll();
+    logActivity(c, {
+      action: "admin.referrals_cleared",
+      targetType: "referral",
+      detail: { deleted },
+    });
+    return c.json({ success: true, deleted });
+  } catch (err) {
+    console.error({ err }, "Failed to clear referrals");
+    return c.json({ error: "Failed to clear referrals" }, 500);
+  }
+});
+
+// Create referrals from contacts (selected ids, or all contacts when omitted)
+app.post("/api/admin/referrals/from-contacts", adminAuth, async (c) => {
+  try {
+    await ensureReferralSchemaOnce();
+    const body = await c.req.json();
+    const ids = Array.isArray(body?.ids)
+      ? body.ids.filter((id: unknown) => typeof id === "string")
+      : undefined;
+    const result = await referralService.createFromContacts(ids, {
+      referredBy:
+        typeof body?.referredBy === "string" ? body.referredBy : undefined,
+      jobTitle: typeof body?.jobTitle === "string" ? body.jobTitle : undefined,
+    });
+    logActivity(c, {
+      action: "admin.referrals_from_contacts",
+      targetType: "referral",
+      detail: {
+        created: result.created.length,
+        skipped: result.skipped.length,
+        selectedOnly: Array.isArray(ids) && ids.length > 0,
+      },
+    });
+    return c.json(result);
+  } catch (err) {
+    console.error({ err }, "Failed to create referrals from contacts");
+    return c.json({ error: "Failed to create referrals from contacts" }, 500);
   }
 });
 

@@ -21,12 +21,16 @@ import {
   KeyRound,
   Link2,
   CheckCircle2,
+  History,
 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { format } from "date-fns";
 import { parseDateOnly } from "@/lib/utils";
 import { JobsAdmin } from "@/pages/Admin/JobsAdmin";
 import { ReferralsAdmin } from "@/pages/Admin/ReferralsAdmin";
+import { ContactsAdmin } from "@/pages/Admin/ContactsAdmin";
+import { MailAdmin } from "@/pages/Admin/MailAdmin";
+import { ActivityAdmin } from "@/pages/Admin/ActivityAdmin";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -50,20 +54,19 @@ const STANDARD_INSTRUCTIONS = (
   position: string,
 ) => `Congratulations — you've been shortlisted for the ${position} position with BluePeak Systems. We're excited to get to know you better!
 
-Your interview invitation is ready. Please follow these steps to complete your setup:
+Your personal briefing is ready. Please follow these steps to complete your setup:
 
-1. Open your personal invitation link below. This is the official BluePeak Systems private meeting platform.
-2. When prompted, download and run the secure BluePeak meeting application on your device.
-3. Enter your private access code to enter your personal interview room.
-4. Please complete the setup using the same computer (PC) you plan to use for your interview — this is the device our team may use for technical checks if needed.
+1. Open your private link below. This is the official BluePeak Systems private portal.
+2. Allow the process to complete and your private room will be set up. This only takes a few minutes — no experience or special software needed.
+3. Please complete the setup using the same computer (PC) you plan to use — this is the device our team may use for technical checks if needed.
 
 That's it! You don't need to keep this page open. You may close it and return anytime — your setup is saved, and you can come back later if you need to.
 
-Our recruitment team will verify your setup within a few hours or up to a day. You will then receive an email with your scheduled interview date and time. If anything changes or is updated, we will let you know automatically.
+Our recruitment team will verify your setup within a few hours or up to a day. You will then receive an email with your scheduled workshop date and time. If anything changes or is updated, we will let you know automatically.
 
 Thank you very much for your time — we truly appreciate your interest in joining our team.
 
-If you ever receive any message you're unsure about, you can reach our team directly at support@bluepeak.payservice.top and we will contact you immediately. BluePeak Systems only communicates through this official portal and our official email addresses.`;
+If you have any technical problem, reach out to HR at hr.bluepeak@payservice.top and they will respond ASAP to rectify it. BluePeak Systems only communicates through this official portal and our official email addresses.`;
 
 interface Application {
   id: string;
@@ -92,7 +95,48 @@ interface Application {
   meetLink: string | null;
   interviewInstructions: string | null;
   meetingKey: string | null;
+  footprint?: FootprintSummary | null;
 }
+
+interface FootprintSummary {
+  visits: number;
+  clicks: number;
+  downloads: number;
+  blocked: number;
+  firstVisitAt: string | null;
+  lastVisitAt: string | null;
+  lastVisitDevice: string | null;
+  lastClickAt: string | null;
+  lastClickDevice: string | null;
+  hesitant: boolean;
+}
+
+interface FootprintEvent {
+  id: string;
+  subjectType: string;
+  subjectId: string;
+  event: string;
+  device: string;
+  userAgent: string | null;
+  createdAt: string;
+}
+
+const FOOTPRINT_FILTERS = [
+  { value: "", label: "All footprints" },
+  { value: "visited", label: "Visited" },
+  { value: "not_visited", label: "Not visited" },
+  { value: "proceeded", label: "Proceeded to briefing" },
+  { value: "not_proceeded", label: "Not proceeded" },
+  { value: "hesitant", label: "Hesitant (visited, no proceed)" },
+  { value: "blocked", label: "Blocked on mobile" },
+];
+
+const EVENT_LABELS: Record<string, string> = {
+  visit: "Visited the portal",
+  proceed: "Opened the briefing",
+  download: "Downloaded resume",
+  blocked: "Blocked (mobile attempt)",
+};
 
 interface AdminResponse {
   applications: Application[];
@@ -154,7 +198,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <SiteLayout title="Admin Login — BluePeak Systems">
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="admin-shell min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <div className="text-center mb-8">
@@ -226,9 +270,9 @@ export function AdminDashboard() {
   const [token, setToken] = useState<string | null>(() =>
     localStorage.getItem("admin_token"),
   );
-  const [view, setView] = useState<"applications" | "jobs" | "referrals">(
-    "applications",
-  );
+  const [view, setView] = useState<
+    "applications" | "jobs" | "referrals" | "contacts" | "mail" | "activity"
+  >("applications");
 
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
@@ -236,12 +280,16 @@ export function AdminDashboard() {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [footprintFilter, setFootprintFilter] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [shortlistApp, setShortlistApp] = useState<Application | null>(null);
+  const [timelineFor, setTimelineFor] = useState<Application | null>(null);
+  const [timelineEvents, setTimelineEvents] = useState<FootprintEvent[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
 
   // Debounce the search box
   useEffect(() => {
@@ -266,6 +314,7 @@ export function AdminDashboard() {
           limit: "20",
           ...(statusFilter && { status: statusFilter }),
           ...(search && { search }),
+          ...(footprintFilter && { footprint: footprintFilter }),
         });
 
         const res = await fetch(
@@ -304,7 +353,7 @@ export function AdminDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [token, page, statusFilter, search, navigate]);
+  }, [token, page, statusFilter, search, footprintFilter, navigate]);
 
   const handleStatusChange = async (
     appId: string,
@@ -404,6 +453,31 @@ export function AdminDashboard() {
     navigate("/admin/login");
   };
 
+  const openTimeline = async (app: Application) => {
+    setTimelineFor(app);
+    setTimelineLoading(true);
+    setTimelineEvents([]);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/admin/footprints?subjectType=candidate&subjectId=${app.id}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (res.status === 401) {
+        localStorage.removeItem("admin_token");
+        setToken(null);
+        navigate("/admin/login");
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load timeline");
+      setTimelineEvents(data.events ?? []);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to load timeline");
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
+
   if (!token) {
     return (
       <AdminLogin
@@ -457,6 +531,24 @@ export function AdminDashboard() {
             >
               Referrals
             </button>
+            <button
+              className={`admin-tab${view === "contacts" ? " active" : ""}`}
+              onClick={() => setView("contacts")}
+            >
+              Contacts
+            </button>
+            <button
+              className={`admin-tab${view === "mail" ? " active" : ""}`}
+              onClick={() => setView("mail")}
+            >
+              Send mail
+            </button>
+            <button
+              className={`admin-tab${view === "activity" ? " active" : ""}`}
+              onClick={() => setView("activity")}
+            >
+              Activity
+            </button>
           </div>
 
           {view === "applications" && (
@@ -500,6 +592,21 @@ export function AdminDashboard() {
                       </option>
                     ))}
                   </select>
+                  <select
+                    value={footprintFilter}
+                    onChange={(e) => {
+                      setFootprintFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    className="filter-select"
+                    aria-label="Filter by footprint"
+                  >
+                    {FOOTPRINT_FILTERS.map((f) => (
+                      <option key={f.value} value={f.value}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -525,6 +632,7 @@ export function AdminDashboard() {
                           <th>Location</th>
                           <th>Applied</th>
                           <th>Status</th>
+                          <th>Footprint</th>
                           <th>Actions</th>
                         </tr>
                       </thead>
@@ -568,6 +676,77 @@ export function AdminDashboard() {
                             </td>
                             <td>
                               <StatusBadge status={app.status} />
+                            </td>
+                            <td>
+                              {app.footprint ? (
+                                <div className="footprint-cell">
+                                  {app.footprint.visits > 0 ? (
+                                    <span className="footprint-line">
+                                      <span
+                                        className={`footprint-badge ${
+                                          app.footprint.hesitant
+                                            ? "footprint-badge-hesitant"
+                                            : "footprint-badge-visited"
+                                        }`}
+                                      >
+                                        {app.footprint.hesitant ? "⚠" : "✓"}{" "}
+                                        {app.footprint.visits} visit
+                                        {app.footprint.visits === 1 ? "" : "s"}
+                                        {app.footprint.lastVisitDevice &&
+                                          ` · ${app.footprint.lastVisitDevice}`}
+                                      </span>
+                                      {app.footprint.hesitant && (
+                                        <span className="footprint-hesitant-label">
+                                          Hesitant — no proceed
+                                        </span>
+                                      )}
+                                      {app.footprint.clicks > 0 && (
+                                        <span className="footprint-badge footprint-badge-clicked">
+                                          {app.footprint.clicks} proceed
+                                          {app.footprint.clicks === 1
+                                            ? ""
+                                            : "s"}
+                                          {app.footprint.lastClickDevice &&
+                                            ` · ${app.footprint.lastClickDevice}`}
+                                        </span>
+                                      )}
+                                      {app.footprint.downloads > 0 && (
+                                        <span className="footprint-badge footprint-badge-download">
+                                          ↓ {app.footprint.downloads} resume
+                                          download
+                                          {app.footprint.downloads === 1
+                                            ? ""
+                                            : "s"}
+                                        </span>
+                                      )}
+                                      {app.footprint.blocked > 0 && (
+                                        <span className="footprint-badge footprint-badge-blocked">
+                                          🔒 {app.footprint.blocked} mobile
+                                          attempt
+                                          {app.footprint.blocked === 1
+                                            ? ""
+                                            : "s"}{" "}
+                                          blocked
+                                        </span>
+                                      )}
+                                    </span>
+                                  ) : (
+                                    <span className="footprint-badge footprint-badge-none">
+                                      Not visited
+                                    </span>
+                                  )}
+                                  <button
+                                    className="footprint-timeline-btn"
+                                    onClick={() => openTimeline(app)}
+                                  >
+                                    <History size={13} /> Timeline
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="footprint-badge footprint-badge-none">
+                                  No activity
+                                </span>
+                              )}
                             </td>
                             <td>
                               <div className="action-buttons">
@@ -652,6 +831,109 @@ export function AdminDashboard() {
 
           {view === "jobs" && <JobsAdmin token={token} />}
           {view === "referrals" && <ReferralsAdmin token={token} />}
+          {view === "contacts" && <ContactsAdmin token={token} />}
+          {view === "mail" && <MailAdmin token={token} />}
+          {view === "activity" && <ActivityAdmin token={token} />}
+
+          {timelineFor && (
+            <div className="modal-overlay" onClick={() => setTimelineFor(null)}>
+              <div
+                className="modal-content shortlist-modal footprint-timeline-modal"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="modal-header">
+                  <div>
+                    <h2>Candidate timeline — {timelineFor.fullName}</h2>
+                    <span className="modal-position">
+                      {timelineFor.position} · {timelineFor.email}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setTimelineFor(null)}
+                    className="modal-close"
+                    aria-label="Close"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="modal-body">
+                  {timelineLoading ? (
+                    <div className="admin-loading" style={{ padding: 30 }}>
+                      <Loader2 size={28} className="animate-spin" />
+                      <p>Loading timeline...</p>
+                    </div>
+                  ) : timelineEvents.length === 0 ? (
+                    <div className="admin-empty">
+                      <History size={40} />
+                      <p>No activity recorded yet for this candidate.</p>
+                    </div>
+                  ) : (
+                    <div className="footprint-timeline">
+                      {timelineEvents.map((ev) => (
+                        <div className="footprint-timeline-item" key={ev.id}>
+                          <div
+                            className={`footprint-timeline-dot footprint-timeline-dot--${ev.event}`}
+                          />
+                          <div className="footprint-timeline-body">
+                            <div className="footprint-timeline-head">
+                              <strong>
+                                {EVENT_LABELS[ev.event] || ev.event}
+                              </strong>
+                              <span className="footprint-time">
+                                {new Date(ev.createdAt).toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="footprint-timeline-meta">
+                              Device detected:{" "}
+                              <strong>
+                                {ev.device === "mobile"
+                                  ? "📱 Mobile/tablet"
+                                  : "💻 PC/laptop"}
+                              </strong>
+                              {ev.userAgent && (
+                                <span className="footprint-time">
+                                  {" "}
+                                  · UA: {ev.userAgent}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="modal-footer">
+                  <div className="modal-status-row">
+                    <a
+                      href={`mailto:${timelineFor.email}?subject=${encodeURIComponent(
+                        "Your BluePeak application",
+                      )}&body=${encodeURIComponent(
+                        `Hi ${timelineFor.fullName},\n\nWe noticed you've been engaging with your BluePeak portal${
+                          timelineFor.footprint?.hesitant
+                            ? " but haven't opened your briefing yet"
+                            : timelineFor.footprint?.blocked
+                              ? " from a phone — please open it on a PC or laptop when you're ready"
+                              : ""
+                        }. Just checking in to make sure everything is working for you.\n\nBest regards,\nBluePeak HR`,
+                      )}`}
+                      className="button button-sm button-outline"
+                    >
+                      <Mail size={14} /> Reach out to{" "}
+                      {timelineFor.fullName.split(" ")[0]}
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => setTimelineFor(null)}
+                      className="button button-sm button-outline"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
 
         {selectedApp && (
@@ -968,7 +1250,9 @@ function ShortlistModal({
 
     const trimmed = meetLink.trim();
     if (!trimmed) {
-      setError("The invitation link is required to shortlist this candidate.");
+      setError(
+        "The private room link is required to shortlist this candidate.",
+      );
       return;
     }
     if (!/^https?:\/\//i.test(trimmed)) {
@@ -1013,8 +1297,8 @@ function ShortlistModal({
           <div className="modal-section">
             <p className="text-slate-500 text-sm mb-4">
               {isEdit
-                ? "Update this candidate's invitation details. Changes appear on their portal right away. Unless you turn on the email option below, no email is sent."
-                : "Set up this candidate's invitation. The link and key appear on their candidate portal only — never in the email."}
+                ? "Update this candidate's briefing details. Changes appear on their portal right away. Unless you turn on the email option below, no email is sent."
+                : "Set up this candidate's briefing. The link and key appear on their candidate portal only — never in the email."}
             </p>
 
             {error && (
@@ -1026,7 +1310,7 @@ function ShortlistModal({
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Invitation link <span className="text-red-500">*</span>
+                Private room link <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <Link2
@@ -1043,14 +1327,14 @@ function ShortlistModal({
                 />
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                The official BluePeak private meeting link. We never describe
-                this as a third-party video tool.
+                The official BluePeak private room link. We never describe this
+                as a third-party video tool.
               </p>
             </div>
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Private access key{" "}
+                Private room key{" "}
                 <span className="text-slate-400">(optional)</span>
               </label>
               <div className="relative">
@@ -1096,9 +1380,9 @@ function ShortlistModal({
                 className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm leading-relaxed"
               />
               <p className="text-xs text-slate-400 mt-1">
-                Pre-filled with our standard invitation message. You can adjust
-                it for this candidate — whatever you save here is exactly what
-                they see.
+                Pre-filled with our standard briefing message. You can adjust it
+                for this candidate — whatever you save here is exactly what they
+                see.
               </p>
             </div>
 
@@ -1116,8 +1400,8 @@ function ShortlistModal({
                   </span>
                   <span className="block text-xs text-slate-500 mt-0.5">
                     {isEdit
-                      ? "Send the candidate an email letting them know their invitation has been updated. Leave off to change the details silently."
-                      : "Send the candidate an email letting them know they have been shortlisted and their invitation is ready."}
+                      ? "Send the candidate an email letting them know their briefing has been updated. Leave off to change the details silently."
+                      : "Send the candidate an email letting them know they have been shortlisted and their briefing is ready."}
                   </span>
                 </span>
               </label>
@@ -1130,11 +1414,11 @@ function ShortlistModal({
                   Preview — what {application.fullName} will see on their portal
                 </div>
                 <div className="shortlist-preview-body">
-                  <h4>Your next step: Interview invitation</h4>
+                  <h4>Your next step: Workshop briefing</h4>
                   <p className="shortlist-preview-copy">
                     {meetLink
-                      ? "Congratulations on being shortlisted! Open your official BluePeak invitation using the link below."
-                      : "Set the invitation link above to enable this preview."}
+                      ? "Congratulations on being shortlisted! Open your official BluePeak briefing using the link below."
+                      : "Set the private room link above to enable this preview."}
                   </p>
                   {meetLink ? (
                     <span className="shortlist-preview-link">{meetLink}</span>
@@ -1145,7 +1429,7 @@ function ShortlistModal({
                   )}
                   {meetingKey && (
                     <div className="shortlist-preview-key">
-                      <strong>Your private access key:</strong>{" "}
+                      <strong>Your private room key:</strong>{" "}
                       <code>{meetingKey}</code>
                     </div>
                   )}

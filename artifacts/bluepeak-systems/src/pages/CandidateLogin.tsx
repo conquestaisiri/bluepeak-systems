@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link } from "wouter";
 import {
   Mail,
@@ -51,7 +51,7 @@ export function CandidateLogin() {
   };
 
   return (
-    <SiteLayout title="Sign In — BluePeak Systems">
+    <SiteLayout title="Sign In â€” BluePeak Systems">
       <div className="auth-shell">
         <div className="auth-card reveal is-visible">
           <div className="auth-header">
@@ -67,7 +67,7 @@ export function CandidateLogin() {
             </Link>
             <div className="auth-brand">
               <img
-                src="/bluepeak-mark.svg"
+                src="/bluepeak-mark.png"
                 alt="BluePeak Systems"
                 className="candidate-logo"
               />
@@ -126,7 +126,7 @@ export function CandidateLogin() {
                 {state === "submitting" ? (
                   <>
                     <Loader2 size={18} className="spin" />
-                    Sending…
+                    Sendingâ€¦
                   </>
                 ) : (
                   <>

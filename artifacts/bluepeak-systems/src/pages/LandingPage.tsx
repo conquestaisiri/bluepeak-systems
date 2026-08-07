@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+﻿import { FormEvent, useEffect, useState } from "react";
 import { Link } from "wouter";
 import {
   ArrowRight,
@@ -20,19 +20,19 @@ const categories = [
     title: "Operations & logistics",
     copy: "People who keep orders moving, sites organized, and customers looked after.",
     image: "/work-warehouse.jpg",
-    meta: "Warehouse · Packing · Fulfilment",
+    meta: "Warehouse Â· Packing Â· Fulfilment",
   },
   {
     title: "Facilities & field work",
     copy: "Dependable hands for the work that happens on-site, in-person, and every day.",
     image: "/work-facilities.jpg",
-    meta: "Cleaning · Maintenance · Retail",
+    meta: "Cleaning Â· Maintenance Â· Retail",
   },
   {
     title: "Professional teams",
     copy: "Thoughtful specialists for the work that needs planning, judgment, and expertise.",
     image: "/work-office.jpg",
-    meta: "Finance · Support · Administration",
+    meta: "Finance Â· Support Â· Administration",
   },
 ];
 
@@ -112,7 +112,7 @@ export function LandingPage() {
       <header className="landing-v2-header">
         <div className="landing-v2-nav">
           <Link href="/" className="landing-v2-brand">
-            <img src="/bluepeak-mark.svg" alt="BluePeak Systems" />
+            <img src="/bluepeak-mark.png" alt="BluePeak Systems" />
           </Link>
           <nav className="landing-v2-links" aria-label="Primary navigation">
             <a href="#work">What we do</a>
@@ -211,7 +211,7 @@ export function LandingPage() {
             <div className="landing-v2-art-card">
               <span>One partner</span>
               <strong>for every kind of work.</strong>
-              <small>Remote · Hybrid · On-site</small>
+              <small>Remote Â· Hybrid Â· On-site</small>
             </div>
           </div>
         </section>
@@ -297,7 +297,7 @@ export function LandingPage() {
             <h2>Hiring should feel clear, not like a second job.</h2>
             <p>
               We take the search, screening, paperwork, and people operations
-              off your plate—so your team can stay focused on the work itself.
+              off your plateâ€”so your team can stay focused on the work itself.
             </p>
             <ul>
               <li>
@@ -453,7 +453,7 @@ export function LandingPage() {
               className="landing-v2-button landing-v2-button-light"
               disabled={formState === "busy"}
             >
-              {formState === "busy" ? "Sending…" : "Send enquiry"}{" "}
+              {formState === "busy" ? "Sendingâ€¦" : "Send enquiry"}{" "}
               <ArrowUpRight size={16} />
             </button>
           </form>

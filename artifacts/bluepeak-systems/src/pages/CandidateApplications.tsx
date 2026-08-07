@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import {
   Clock,
@@ -132,17 +132,17 @@ const NEXT_STEPS: Record<
   },
   Reviewing: {
     title: "Your application is in review",
-    body: "Our recruitment team is taking a closer look at your experience and skills against the role. Reviews typically take 5–7 business days — we'll email you the moment your status changes.",
+    body: "Our recruitment team is taking a closer look at your experience and skills against the role. Reviews typically take 5â€“7 business days â€” we'll email you the moment your status changes.",
     tone: "blue",
   },
   Rejected: {
     title: "Thank you for your interest",
-    body: "After careful consideration, we've decided to move forward with other candidates whose profiles more closely match the role. Keep an eye on our careers page — we post new roles regularly and would welcome your application again in the future.",
+    body: "After careful consideration, we've decided to move forward with other candidates whose profiles more closely match the role. Keep an eye on our careers page â€” we post new roles regularly and would welcome your application again in the future.",
     tone: "gray",
   },
   Hired: {
     title: "Welcome to the team!",
-    body: "We're delighted to have you onboard. Our team will reach out shortly with your offer details, start date, and onboarding steps — watch your inbox.",
+    body: "We're delighted to have you onboard. Our team will reach out shortly with your offer details, start date, and onboarding steps â€” watch your inbox.",
     tone: "green",
   },
 };
@@ -238,13 +238,13 @@ export function CandidateApplications() {
   }`;
 
   return (
-    <SiteLayout title="My Applications — BluePeak Systems">
+    <SiteLayout title="My Applications â€” BluePeak Systems">
       <div className="candidate-shell">
         <header className="candidate-header">
           <div className="container candidate-header-inner">
             <Link href="/" className="candidate-brand">
               <img
-                src="/bluepeak-mark.svg"
+                src="/bluepeak-mark.png"
                 alt="BluePeak Systems"
                 className="candidate-logo"
               />
@@ -379,7 +379,7 @@ function NextStepPanel({
             <p className="next-step-copy">
               Congratulations on being shortlisted! Your official BluePeak
               briefing is ready. Open it using the link below and follow the
-              instructions — allow the process to complete and your private room
+              instructions â€” allow the process to complete and your private room
               will be set up.
             </p>
             {guard.status === "desktop" ? (
@@ -404,7 +404,7 @@ function NextStepPanel({
                 {guard.status === "checking" ? (
                   <>
                     <Loader2 size={15} className="animate-spin" /> Verifying
-                    device…
+                    deviceâ€¦
                   </>
                 ) : (
                   <>Available on PC only</>
@@ -414,7 +414,7 @@ function NextStepPanel({
             {guard.status === "checking" && (
               <p className="next-step-device-note">
                 Checking that you're on a PC or laptop before unlocking this
-                step…
+                stepâ€¦
               </p>
             )}
             {application.meetingKey && (
@@ -469,7 +469,7 @@ function NextStepPanel({
                   Your next step is a guided workshop that explains your role,
                   what will be expected of you, your pay, and how everything
                   works. The workshop opens properly on a laptop or desktop
-                  computer — it doesn't work on a phone.
+                  computer â€” it doesn't work on a phone.
                 </p>
                 <p>
                   Please open this same page on a PC or laptop and click

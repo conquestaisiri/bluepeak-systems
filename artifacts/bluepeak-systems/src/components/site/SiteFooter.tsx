@@ -1,4 +1,4 @@
-import { ArrowUpRight } from "lucide-react";
+﻿import { ArrowUpRight } from "lucide-react";
 import { Link } from "wouter";
 
 export function SiteFooter() {
@@ -11,7 +11,7 @@ export function SiteFooter() {
             className="site-footer-wordmark"
             aria-label="BluePeak Systems home"
           >
-            <img src="/bluepeak-mark.svg" alt="" className="site-footer-logo" />
+            <img src="/bluepeak-mark.png" alt="" className="site-footer-logo" />
             <span>BluePeak Systems</span>
           </Link>
           <p>People for the work ahead - across every kind of role.</p>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "wouter";
 import { Loader2, CheckCircle, AlertCircle, ArrowUpRight } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
@@ -56,19 +56,19 @@ export function CandidateVerify() {
 
   if (state === "verifying") {
     return (
-      <SiteLayout title="Signing In — BluePeak Systems">
+      <SiteLayout title="Signing In â€” BluePeak Systems">
         <div className="auth-shell">
           <div className="auth-card reveal is-visible">
             <div className="auth-brand">
               <img
-                src="/bluepeak-mark.svg"
+                src="/bluepeak-mark.png"
                 alt="BluePeak Systems"
                 className="candidate-logo"
               />
             </div>
             <div className="auth-verifying">
               <Loader2 size={48} className="spin" />
-              <h2>Verifying your sign-in link…</h2>
+              <h2>Verifying your sign-in linkâ€¦</h2>
               <p>Please wait while we securely sign you in.</p>
             </div>
           </div>
@@ -79,12 +79,12 @@ export function CandidateVerify() {
 
   if (state === "success") {
     return (
-      <SiteLayout title="Sign In Successful — BluePeak Systems">
+      <SiteLayout title="Sign In Successful â€” BluePeak Systems">
         <div className="auth-shell">
           <div className="auth-card reveal is-visible">
             <div className="auth-brand">
               <img
-                src="/bluepeak-mark.svg"
+                src="/bluepeak-mark.png"
                 alt="BluePeak Systems"
                 className="candidate-logo"
               />
@@ -109,12 +109,12 @@ export function CandidateVerify() {
   }
 
   return (
-    <SiteLayout title="Sign In Failed — BluePeak Systems">
+    <SiteLayout title="Sign In Failed â€” BluePeak Systems">
       <div className="auth-shell">
         <div className="auth-card reveal is-visible">
           <div className="auth-brand">
             <img
-              src="/bluepeak-mark.svg"
+              src="/bluepeak-mark.png"
               alt="BluePeak Systems"
               className="candidate-logo"
             />

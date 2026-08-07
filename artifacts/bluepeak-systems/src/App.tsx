@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+﻿import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -70,7 +70,7 @@ const services = [
     icon: UsersRound,
     number: "01",
     title: "Dedicated teams, any role",
-    copy: "We build and manage full teams for your roadmap — remote, on-site, or hands-on field work — sourcing, vetting, payroll, and the day-to-day support that keeps people productive.",
+    copy: "We build and manage full teams for your roadmap â€” remote, on-site, or hands-on field work â€” sourcing, vetting, payroll, and the day-to-day support that keeps people productive.",
     tags: [
       "Administration",
       "Warehouse & logistics",
@@ -89,7 +89,7 @@ const services = [
     icon: Network,
     number: "03",
     title: "Workforce advice",
-    copy: "Practical guidance on which roles to hire — from office and remote work to physical and field positions — what they should pay, and how to structure a team that works.",
+    copy: "Practical guidance on which roles to hire â€” from office and remote work to physical and field positions â€” what they should pay, and how to structure a team that works.",
     tags: ["Talent strategy", "Pay maps", "People operations"],
   },
 ];
@@ -125,11 +125,11 @@ const testimonials = [
 const faqs = [
   [
     "What does BluePeak manage for clients?",
-    "We handle sourcing, skills assessment, contracts, payroll coordination, local compliance, onboarding, and ongoing check-ins—for office, remote, hybrid, and on-site field roles. You lead the work; we manage the people side of it.",
+    "We handle sourcing, skills assessment, contracts, payroll coordination, local compliance, onboarding, and ongoing check-insâ€”for office, remote, hybrid, and on-site field roles. You lead the work; we manage the people side of it.",
   ],
   [
     "What kinds of roles does BluePeak fill?",
-    "Practically any role your organization needs: virtual assistants, support, finance, and marketing—as well as hands-on positions like warehouse, packing, cleaning, retail, and hospitality. Fully remote, hybrid, and in-person.",
+    "Practically any role your organization needs: virtual assistants, support, finance, and marketingâ€”as well as hands-on positions like warehouse, packing, cleaning, retail, and hospitality. Fully remote, hybrid, and in-person.",
   ],
   [
     "Where are BluePeak professionals located?",
@@ -137,7 +137,7 @@ const faqs = [
   ],
   [
     "Do you work with individual professionals?",
-    "Yes. Professionals can browse open roles and apply free of charge — whether they prefer remote work or hands-on roles. We keep the process transparent, so you always know where your application stands.",
+    "Yes. Professionals can browse open roles and apply free of charge â€” whether they prefer remote work or hands-on roles. We keep the process transparent, so you always know where your application stands.",
   ],
 ];
 
@@ -188,9 +188,9 @@ function Home() {
 
   useEffect(() => {
     document.title =
-      "BluePeak Systems | Talent for any role — remote, on-site, or in the field";
+      "BluePeak Systems | Talent for any role â€” remote, on-site, or in the field";
     const description =
-      "BluePeak finds, vets, and manages high-quality people for growing organizations — remote, hybrid, on-site, and hands-on field roles across any department. Browse open positions or tell us what you need.";
+      "BluePeak finds, vets, and manages high-quality people for growing organizations â€” remote, hybrid, on-site, and hands-on field roles across any department. Browse open positions or tell us what you need.";
     let meta = document.querySelector('meta[name="description"]');
     if (!meta) {
       meta = document.createElement("meta");
@@ -209,7 +209,7 @@ function Home() {
     };
     og(
       "og:title",
-      "BluePeak Systems | Talent for any role — remote, on-site, or in the field",
+      "BluePeak Systems | Talent for any role â€” remote, on-site, or in the field",
     );
     og("og:description", description);
     og("og:type", "website");
@@ -314,7 +314,7 @@ function Home() {
             data-testid="button-brand"
           >
             <img
-              src="/bluepeak-mark.svg"
+              src="/bluepeak-mark.png"
               alt="BluePeak Systems"
               className="brand-logo"
             />
@@ -458,7 +458,7 @@ function Home() {
               <div className="hero-editorial-aside">
                 <p>
                   BluePeak helps organizations find, place, and support capable
-                  people—from operations and logistics to professional,
+                  peopleâ€”from operations and logistics to professional,
                   technical, and field roles.
                 </p>
                 <div className="hero-buttons">
@@ -481,7 +481,7 @@ function Home() {
             </div>
             <div className="hero-credibility">
               <span>Built for real work</span>
-              <span>Remote · Hybrid · On-site</span>
+              <span>Remote Â· Hybrid Â· On-site</span>
               <span>People in 28+ countries</span>
             </div>
           </div>
@@ -497,7 +497,7 @@ function Home() {
               handled
             </span>
             <span>
-              <Timer size={19} /> Shortlist in 7–10 days
+              <Timer size={19} /> Shortlist in 7â€“10 days
             </span>
           </div>
         </section>
@@ -514,12 +514,12 @@ function Home() {
               <p className="lead">
                 Most companies don't have the time to source, vet, and manage
                 talent across roles, cities, and countries. We do that for
-                you—end to end.
+                youâ€”end to end.
               </p>
               <p>
                 BluePeak Systems is a workforce partner. We find and vet people
                 for desk jobs, hands-on field work, and everything in between,
-                then handle employment, payroll, and compliance—so the working
+                then handle employment, payroll, and complianceâ€”so the working
                 relationship holds up over time.
               </p>
               <a
@@ -546,7 +546,7 @@ function Home() {
             </div>
             <div className="mission-note reveal">
               We believe everyone deserves real opportunities that match how
-              they want to work—some people thrive working from a laptop, and
+              they want to workâ€”some people thrive working from a laptop, and
               others prefer hands-on, in-person roles. We support both, for
               companies of every kind.
             </div>
@@ -566,7 +566,7 @@ function Home() {
               </div>
               <p>
                 One partner for hiring, employment, and the systems that keep
-                teams — deskside, remote, and hands-on — running smoothly.
+                teams â€” deskside, remote, and hands-on â€” running smoothly.
               </p>
             </div>
             <div className="service-list">
@@ -633,7 +633,7 @@ function Home() {
                 </h2>
               </div>
               <p>
-                Not everyone wants to sit at a laptop all day — and many roles
+                Not everyone wants to sit at a laptop all day â€” and many roles
                 are better done with your hands. We staff both, so you can work
                 the way that suits you.
               </p>
@@ -711,8 +711,8 @@ function Home() {
             <div className="work-styles-note reveal">
               <ShieldCheck size={18} />
               <span>
-                However your team works — fully remote, fully on-site, or a mix
-                of both — we hire, train, and support the people behind the
+                However your team works â€” fully remote, fully on-site, or a mix
+                of both â€” we hire, train, and support the people behind the
                 work.
               </span>
             </div>
@@ -860,8 +860,8 @@ function Home() {
                 <span>that fits you.</span>
               </h2>
               <p>
-                Browse open positions — from laptops at home to hands-on work
-                on-site — apply in minutes, and track your application online.
+                Browse open positions â€” from laptops at home to hands-on work
+                on-site â€” apply in minutes, and track your application online.
                 No surprise calls, just a clear process.
               </p>
               <Link
@@ -875,7 +875,7 @@ function Home() {
             <div className="role-card reveal">
               <div className="role-card-top">
                 <span>OPEN POSITIONS</span>
-                <span className="live-dot">● Live</span>
+                <span className="live-dot">â— Live</span>
               </div>
               {[
                 ...(homeJobs.length ? homeJobs.slice(0, 3) : FALLBACK_ROLES),
@@ -888,7 +888,7 @@ function Home() {
                 >
                   <div>
                     <strong>{role.title}</strong>
-                    <span>Remote · On-site · Hybrid</span>
+                    <span>Remote Â· On-site Â· Hybrid</span>
                   </div>
                   <ArrowUpRight size={18} />
                 </Link>
@@ -932,7 +932,7 @@ function Home() {
                 <span>questions.</span>
               </h2>
               <p>
-                If yours is not listed, send it to us directly—we answer every
+                If yours is not listed, send it to us directlyâ€”we answer every
                 message.
               </p>
               <a
@@ -978,7 +978,7 @@ function Home() {
                 <span>you need.</span>
               </h2>
               <p>
-                A short message is enough. We reply with next steps—and a
+                A short message is enough. We reply with next stepsâ€”and a
                 straight answer on whether we can help.
               </p>
               <div className="contact-detail">
@@ -990,7 +990,7 @@ function Home() {
               <div className="contact-detail">
                 <MapPin size={18} />
                 <span>
-                  Working globally — remote and on-site roles in 28+ countries
+                  Working globally â€” remote and on-site roles in 28+ countries
                 </span>
               </div>
             </div>
@@ -1053,7 +1053,7 @@ function Home() {
                 disabled={formBusy}
                 data-testid="button-submit-contact"
               >
-                {formBusy ? "Sending…" : "Send message"}{" "}
+                {formBusy ? "Sendingâ€¦" : "Send message"}{" "}
                 <ArrowUpRight size={17} />
               </button>
               {formState === "success" && (

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { ArrowUp, ArrowUpRight, ChevronRight, Menu, X } from "lucide-react";
 import { SiteFooter } from "@/components/site/SiteFooter";
@@ -25,10 +25,10 @@ export function SiteLayout({ children, title, description }: SiteLayoutProps) {
   useEffect(() => {
     document.title =
       title ??
-      "BluePeak Systems | Talent for any role — remote, hybrid, or on-site";
+      "BluePeak Systems | Talent for any role â€” remote, hybrid, or on-site";
     const desc =
       description ??
-      "BluePeak finds, vets, and manages high-quality people for growing organizations — remote, hybrid, on-site, and hands-on field roles across any department. Browse open positions or tell us what you need.";
+      "BluePeak finds, vets, and manages high-quality people for growing organizations â€” remote, hybrid, on-site, and hands-on field roles across any department. Browse open positions or tell us what you need.";
     let meta = document.querySelector('meta[name="description"]');
     if (!meta) {
       meta = document.createElement("meta");
@@ -67,7 +67,7 @@ export function SiteLayout({ children, title, description }: SiteLayoutProps) {
         <nav className="container nav-bar" aria-label="Main navigation">
           <Link href="/" className="brand" data-testid="button-brand">
             <img
-              src="/bluepeak-mark.svg"
+              src="/bluepeak-mark.png"
               alt="BluePeak Systems"
               className="brand-logo"
             />
